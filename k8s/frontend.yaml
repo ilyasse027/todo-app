@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todo-frontend
+  template:
+    metadata:
+      labels:
+        app: todo-frontend
+    spec:
+      containers:
+      - name: todo-frontend
+        image: ilyassepro/unique-frontend:latest  # Use the latest image tag
+        ports:
+        - containerPort: 80
+        env:
+        - name: VITE_API_URL
+          value: "http://myapp.local/api/todos"  # Ensure the correct Ingress URL is set here
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-frontend
+spec:
+  selector:
+    app: todo-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP  # Use ClusterIP for internal access

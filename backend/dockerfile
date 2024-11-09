@@ -1,0 +1,32 @@
+# Étape 1 : Installation des dépendances et préparation de l'application
+FROM node:18-alpine AS builder
+WORKDIR /app
+
+# Copier les fichiers package.json et installer les dépendances de production
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copier le reste des fichiers nécessaires à l’application
+COPY . .
+
+# Étape 2 : Image de production légère
+FROM node:18-alpine
+WORKDIR /app
+
+# Création d'un utilisateur non-root pour la sécurité
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Copier les fichiers de l'étape builder dans cette image de production
+COPY --from=builder /app /app
+
+# Passer en tant qu'utilisateur non-root
+USER appuser
+
+# Définir les variables d'environnement pour la production
+ENV NODE_ENV=production
+
+# Exposer le port pour l'application
+EXPOSE 5000
+
+# Lancer l'application
+CMD ["node", "src/index.js"]

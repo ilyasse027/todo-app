@@ -1,0 +1,33 @@
+# Build stage
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+# Copy package.json and install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy application files
+COPY . .
+
+# Set the environment variable for Vite
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+# Build the application with Vite
+RUN npm run build
+
+# Production stage with Nginx
+FROM nginx:1.23-alpine
+
+# Copy the build output from Vite to Nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]

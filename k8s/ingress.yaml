@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todo-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"  # Enable regex for paths
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: myapp.local
+    http:
+      paths:
+      - path: /  # Route root to frontend
+        pathType: Prefix
+        backend:
+          service:
+            name: todo-frontend
+            port:
+              number: 80
+      - path: /api(/|$)(.*)  # Use regex to route any /api or /api/todos path to backend
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: todo-backend
+            port:
+              number: 5000

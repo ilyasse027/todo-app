@@ -1,0 +1,150 @@
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #1e293b; /* Dark background for full-page */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #0f172a; /* Match background color for seamless look */
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+  text-align: center;
+  color: #f8fafc;
+  margin-bottom: 20px;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+  padding: 20px;
+  max-width: 800px;
+  background-color: #1e293b;
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+  color: #f0f0f0;
+}
+
+/* Styling for the Todo Form */
+.todo-form {
+  width: 100%;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.todo-form input,
+.todo-form textarea {
+  background-color: #334155;
+  color: #f0f0f0;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  padding: 10px;
+  flex: 1;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+.todo-form input:focus,
+.todo-form textarea:focus {
+  background-color: #475569;
+  outline: none;
+}
+
+.todo-form button {
+  background-color: #3b82f6;
+  color: #f0f0f0;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.todo-form button:hover {
+  background-color: #2563eb;
+}
+
+/* Styling for the Todo List */
+.todo-list {
+  width: 100%;
+  background-color: #1e293b;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.todo-list h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #f0f0f0;
+}
+
+/* Styling for individual Todo items */
+.todo-item {
+  background-color: #334155;
+  border: 1px solid #475569;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 20px; /* Add more space between each todo */
+  display: flex;
+  flex-direction: column; /* Ensure buttons are stacked */
+  gap: 10px; /* Add space between title, description, and buttons */
+  color: #f0f0f0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); /* Add subtle shadow for better visibility */
+}
+
+.todo-item h3 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.todo-item p {
+  margin: 5px 0;
+}
+
+.todo-item button {
+  padding: 8px 15px;
+  background-color: #10b981;
+  color: #f0f0f0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.todo-item button.complete-button:hover {
+  background-color: #059669;
+}
+
+.todo-item button.delete-button {
+  background-color: #ef4444;
+}
+
+.todo-item button.delete-button:hover {
+  background-color: #dc2626;
+}
+
+.no-todos-message {
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+}

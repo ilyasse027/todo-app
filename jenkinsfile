@@ -4,9 +4,9 @@ pipeline {
     environment {
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-        DOCKER_TAG = "2.0"                             // Tag for both backend and frontend images
-        KUBECONFIG = credentials('Kube config')        // Kubernetes config credential ID
-        DRY_RUN = 'true'                              // Set to 'true' for testing without actual execution
+        DOCKER_TAG = "2.0"                              // Tag for both backend and frontend images
+        KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
+        DRY_RUN = 'true'                                // Set to 'true' for testing without actual execution
     }
 
     stages {
@@ -30,7 +30,7 @@ pipeline {
 
         stage('Checkout') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Cloning repository...'
@@ -40,11 +40,11 @@ pipeline {
 
         stage('Install Dependencies') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Installing dependencies...'
-                bat '''
+                sh '''
                     cd backend
                     npm install
                     cd ../frontend
@@ -55,11 +55,11 @@ pipeline {
 
         stage('Run Tests') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Running tests...'
-                bat '''
+                sh '''
                     cd backend
                     npm test || echo "Backend tests failed!"
                     cd ../frontend
@@ -70,7 +70,7 @@ pipeline {
 
         stage('Build Backend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Building backend Docker image...'
@@ -82,7 +82,7 @@ pipeline {
 
         stage('Build Frontend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Building frontend Docker image...'
@@ -94,7 +94,7 @@ pipeline {
 
         stage('Push Backend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Pushing backend Docker image to Docker Hub...'
@@ -108,7 +108,7 @@ pipeline {
 
         stage('Push Frontend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Pushing frontend Docker image to Docker Hub...'
@@ -122,7 +122,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             when {
-                expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
             }
             steps {
                 echo 'Deploying backend and frontend to Kubernetes...'

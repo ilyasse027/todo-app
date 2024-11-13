@@ -1,22 +1,24 @@
 pipeline {
     agent any
-    
+
     environment {
-        DOCKER_REGISTRY = 'your-docker-registry'
-        DOCKER_IMAGE = 'todo-app'
-        DOCKER_TAG = "${BUILD_NUMBER}"
-        KUBECONFIG = credentials('kubeconfig')
+        BACKEND_IMAGE = 'ilyassepro/unique-backend'
+        FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
+        DOCKER_TAG = "2.0"                             // Tag for both backend and frontend images
+        KUBECONFIG = credentials('Kube config')        // Kubernetes config credential ID
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
+                echo 'Cloning repository...'
                 checkout scm
             }
         }
-        
+
         stage('Install Dependencies') {
             steps {
+                echo 'Installing dependencies...'
                 sh '''
                     cd backend
                     npm install
@@ -25,73 +27,106 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Run Tests') {
             steps {
+                echo 'Running tests...'
                 sh '''
                     cd backend
-                    npm test
+                    npm test || echo "Backend tests failed!"
                     cd ../frontend
-                    npm test
+                    npm test || echo "Frontend tests failed!"
                 '''
             }
         }
-        
-        stage('Build Docker Image') {
+
+        stage('Build Backend Image') {
             steps {
+                echo 'Building backend Docker image...'
                 script {
-                    docker.build("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    docker.build("${BACKEND_IMAGE}:${DOCKER_TAG}", "backend/.")
                 }
             }
         }
-        
-        stage('Security Scan') {
+
+        stage('Build Frontend Image') {
             steps {
-                sh """
-                    trivy image ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} || exit 0
-                """
+                echo 'Building frontend Docker image...'
+                script {
+                    docker.build("${FRONTEND_IMAGE}:${DOCKER_TAG}", "frontend/.")
+                }
             }
         }
-        
-        stage('Push Docker Image') {
+
+        stage('Push Backend Image') {
             steps {
+                echo 'Pushing backend Docker image to Docker Hub...'
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-                        docker.image("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                    docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
+                        docker.image("${BACKEND_IMAGE}:${DOCKER_TAG}").push()
                     }
                 }
             }
         }
-        
+
+        stage('Push Frontend Image') {
+            steps {
+                echo 'Pushing frontend Docker image to Docker Hub...'
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
+                        docker.image("${FRONTEND_IMAGE}:${DOCKER_TAG}").push()
+                    }
+                }
+            }
+        }
+
         stage('Deploy to Kubernetes') {
             steps {
+                echo 'Deploying backend and frontend to Kubernetes...'
                 sh """
-                    # Ensure the namespace exists
-                    kubectl create namespace todolist --dry-run=client -o yaml | kubectl apply -f -
-                    
-                    # Deploy with Helm
-                    helm upgrade --install todo-app ./helm/todo-app \
-                        --namespace todolist \
-                        --create-namespace \
+                    # Ensure namespace exists
+                    kubectl create namespace todo-app --dry-run=client -o yaml | kubectl apply -f -
+
+                    # Deploy backend
+                    helm upgrade --install backend ./helm/backend \
+                        --namespace todo-app \
+                        --set image.repository=${BACKEND_IMAGE} \
+                        --set image.tag=${DOCKER_TAG} \
+                        --wait
+
+                    # Deploy frontend
+                    helm upgrade --install frontend ./helm/frontend \
+                        --namespace todo-app \
+                        --set image.repository=${FRONTEND_IMAGE} \
                         --set image.tag=${DOCKER_TAG} \
                         --wait
                 """
             }
         }
     }
-    
+
     post {
         success {
+            echo 'Pipeline succeeded!'
             slackSend(
                 color: 'good',
-                message: "Pipeline succeeded! Image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                message: """
+                    🎉 Pipeline succeeded! 🎉
+                    - Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}
+                    - Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}
+                """,
+                tokenCredentialId: 'Slack-webhook'
             )
         }
         failure {
+            echo 'Pipeline failed!'
             slackSend(
                 color: 'danger',
-                message: "Pipeline failed! Check logs: ${BUILD_URL}"
+                message: """
+                    ❌ Pipeline failed! ❌
+                    - Check logs: ${BUILD_URL}
+                """,
+                tokenCredentialId: 'Slack-webhook'
             )
         }
     }

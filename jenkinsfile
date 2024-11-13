@@ -7,6 +7,7 @@ pipeline {
         DOCKER_TAG = "2.0"                              // Tag for both backend and frontend images
         KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
         DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
+        SLACK_WEBHOOK_URL = credentials('Slack-webhook') // Slack Webhook URL credential ID
     }
 
     stages {
@@ -21,8 +22,8 @@ pipeline {
                 echo 'Testing Slack Notification...'
                 withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
                     bat """
-                    curl -X POST -H "Content-type: application/json" ^
-                        --data "{\\"text\\":\\"Test message from Jenkins Pipeline. DRY_RUN = ${DRY_RUN}\\"}" %SLACK_WEBHOOK_URL%
+                        curl -X POST -H "Content-type: application/json" \
+                        --data "{\\"text\\":\\"Test message from Jenkins Pipeline. DRY_RUN = ${env.DRY_RUN}\\"}" %SLACK_WEBHOOK_URL%
                     """
                 }
             }
@@ -46,9 +47,9 @@ pipeline {
                 echo 'Installing dependencies...'
                 bat """
                     cd backend
-                    npm install
+                    npm ci
                     cd ../frontend
-                    npm install
+                    npm ci
                 """
             }
         }
@@ -58,7 +59,7 @@ pipeline {
                 expression { env.DRY_RUN != 'true' }
             }
             steps {
-                echo 'Running tests...'
+                echo 'Running Jest tests...'
                 bat """
                     cd backend
                     npm test || echo "Backend tests failed!"
@@ -126,17 +127,22 @@ pipeline {
             }
             steps {
                 echo 'Deploying backend and frontend to Kubernetes...'
-                bat """
+                sh """
+                    # Ensure namespace exists
                     kubectl create namespace todo-app --dry-run=client -o yaml | kubectl apply -f -
-                    helm upgrade --install backend ./helm/backend ^
-                        --namespace todo-app ^
-                        --set image.repository=${BACKEND_IMAGE} ^
-                        --set image.tag=${DOCKER_TAG} ^
+
+                    # Deploy backend
+                    helm upgrade --install backend ./helm/backend \
+                        --namespace todo-app \
+                        --set image.repository=${BACKEND_IMAGE} \
+                        --set image.tag=${DOCKER_TAG} \
                         --wait
-                    helm upgrade --install frontend ./helm/frontend ^
-                        --namespace todo-app ^
-                        --set image.repository=${FRONTEND_IMAGE} ^
-                        --set image.tag=${DOCKER_TAG} ^
+
+                    # Deploy frontend
+                    helm upgrade --install frontend ./helm/frontend \
+                        --namespace todo-app \
+                        --set image.repository=${FRONTEND_IMAGE} \
+                        --set image.tag=${DOCKER_TAG} \
                         --wait
                 """
             }
@@ -152,8 +158,8 @@ pipeline {
             echo 'Pipeline succeeded!'
             withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
                 bat """
-                curl -X POST -H "Content-type: application/json" ^
-                    --data "{\\"text\\":\\"Pipeline succeeded! Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}, Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}\\"}" %SLACK_WEBHOOK_URL%
+                    curl -X POST -H "Content-type: application/json" \
+                    --data "{\\"text\\":\\"🎉 Pipeline succeeded! 🎉 Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}, Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}\\"}" %SLACK_WEBHOOK_URL%
                 """
             }
         }
@@ -161,8 +167,8 @@ pipeline {
             echo 'Pipeline failed!'
             withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
                 bat """
-                curl -X POST -H "Content-type: application/json" ^
-                    --data "{\\"text\\":\\"Pipeline failed! Check logs: ${BUILD_URL}\\"}" %SLACK_WEBHOOK_URL%
+                    curl -X POST -H "Content-type: application/json" \
+                    --data "{\\"text\\":\\"❌ Pipeline failed! ❌\\"}" %SLACK_WEBHOOK_URL%
                 """
             }
         }

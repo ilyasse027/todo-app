@@ -16,7 +16,7 @@ global.XMLHttpRequest = vi.fn();
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
   constructor() {}
-  disconnect() {}
+  disconnect() {} 
   observe() {}
   unobserve() {}
 };

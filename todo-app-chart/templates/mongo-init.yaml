@@ -1,0 +1,18 @@
+{{- $mongodb := .Values.mongodb }}
+{{- $namespace := .Values.namespace }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-init
+  namespace: {{ $namespace }}
+data:
+  init.js: |
+    db.auth('{{ $mongodb.username }}', '{{ $mongodb.password }}')
+    db = db.getSiblingDB('{{ $mongodb.database }}')
+    db.createUser({
+      user: '{{ $mongodb.username }}',
+      pwd: '{{ $mongodb.password }}',
+      roles: [
+        { role: 'readWrite', db: '{{ $mongodb.database }}' }
+      ]
+    })

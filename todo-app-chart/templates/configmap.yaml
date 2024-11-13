@@ -1,0 +1,19 @@
+{{- $mongodb := .Values.mongodb }}
+{{- $frontend := .Values.frontend }}
+{{- $namespace := .Values.namespace }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-configmap
+  namespace: {{ $namespace }}
+data:
+  database: {{ $mongodb.database }}
+  mongodb-url: mongodb://mongodb:27017
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-configmap
+  namespace: {{ $namespace }}
+data:
+  VITE_API_URL: {{ $frontend.apiUrl }}

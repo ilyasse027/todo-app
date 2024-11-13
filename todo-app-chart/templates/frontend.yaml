@@ -1,7 +1,10 @@
+{{- $frontend := .Values.frontend }}
+{{- $namespace := .Values.namespace }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: todo-frontend
+  namespace: {{ $namespace }}
 spec:
   replicas: 1
   selector:
@@ -14,22 +17,22 @@ spec:
     spec:
       containers:
       - name: todo-frontend
-        image: ilyassepro/unique-frontend:latest  # Use the latest image tag
+        image: {{ $frontend.image }}
         ports:
-        - containerPort: 80
+        - containerPort: {{ $frontend.port }}
         env:
         - name: VITE_API_URL
-          value: "http://myapp.local/api/todos"  # Ensure the correct Ingress URL is set here
-
+          value: {{ $frontend.apiUrl }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: todo-frontend
+  namespace: {{ $namespace }}
 spec:
   selector:
     app: todo-frontend
   ports:
-  - port: 80
-    targetPort: 80
-  type: ClusterIP  # Use ClusterIP for internal access
+  - port: {{ $frontend.port }}
+    targetPort: {{ $frontend.port }}
+  type: ClusterIP

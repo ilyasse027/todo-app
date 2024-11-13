@@ -1,23 +1,26 @@
+{{- $ingress := .Values.ingress }}
+{{- $namespace := .Values.namespace }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: todo-ingress
+  namespace: {{ $namespace }}
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"  # Enable regex for paths
 spec:
   ingressClassName: nginx
   rules:
-  - host: myapp.local
+  - host: {{ $ingress.host }}
     http:
       paths:
-      - path: /  # Route root to frontend
+      - path: /
         pathType: Prefix
         backend:
           service:
             name: todo-frontend
             port:
               number: 80
-      - path: /api(/|$)(.*)  # Use regex to route any /api or /api/todos path to backend
+      - path: /api(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
           service:

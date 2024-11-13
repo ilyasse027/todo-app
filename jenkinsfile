@@ -16,6 +16,18 @@ pipeline {
             }
         }
 
+        stage('Test Slack Notification') {
+            steps {
+                echo 'Testing Slack Notification...'
+                slackSend(
+                    channel: '#pipeline',
+                    color: 'good',
+                    message: "This is a test message from Jenkins Pipeline. DRY_RUN = ${env.DRY_RUN}",
+                    tokenCredentialId: 'Slack-webhook'
+                )
+            }
+        }
+
         stage('Checkout') {
             when {
                 expression { return env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'

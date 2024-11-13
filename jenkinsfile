@@ -6,7 +6,7 @@ pipeline {
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
         DOCKER_TAG = "2.0"                              // Tag for both backend and frontend images
         KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
-        DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
+        DRY_RUN = 'true'                               // Set to 'true' for testing without actual execution
     }
 
     stages {
@@ -20,17 +20,17 @@ pipeline {
             steps {
                 echo 'Testing Slack Notification...'
                 withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-                    sh '''
-                    curl -X POST -H "Content-type: application/json" \
-                        --data '{"text":"Test message from Jenkins Pipeline. DRY_RUN = ${DRY_RUN}"}' $SLACK_WEBHOOK_URL
-                    '''
+                    bat """
+                    curl -X POST -H "Content-type: application/json" ^
+                        --data "{\\"text\\":\\"Test message from Jenkins Pipeline. DRY_RUN = ${DRY_RUN}\\"}" %SLACK_WEBHOOK_URL%
+                    """
                 }
             }
         }
 
         stage('Checkout') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Cloning repository...'
@@ -40,37 +40,37 @@ pipeline {
 
         stage('Install Dependencies') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Installing dependencies...'
-                sh '''
+                bat """
                     cd backend
                     npm install
                     cd ../frontend
                     npm install
-                '''
+                """
             }
         }
 
         stage('Run Tests') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Running tests...'
-                sh '''
+                bat """
                     cd backend
                     npm test || echo "Backend tests failed!"
                     cd ../frontend
                     npm test || echo "Frontend tests failed!"
-                '''
+                """
             }
         }
 
         stage('Build Backend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Building backend Docker image...'
@@ -82,7 +82,7 @@ pipeline {
 
         stage('Build Frontend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Building frontend Docker image...'
@@ -94,7 +94,7 @@ pipeline {
 
         stage('Push Backend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Pushing backend Docker image to Docker Hub...'
@@ -108,7 +108,7 @@ pipeline {
 
         stage('Push Frontend Image') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Pushing frontend Docker image to Docker Hub...'
@@ -122,26 +122,26 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             when {
-                expression { return env.DRY_RUN != 'true' }
+                expression { env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Deploying backend and frontend to Kubernetes...'
-                sh """
+                bat """
                     # Ensure namespace exists
                     kubectl create namespace todo-app --dry-run=client -o yaml | kubectl apply -f -
 
                     # Deploy backend
-                    helm upgrade --install backend ./helm/backend \
-                        --namespace todo-app \
-                        --set image.repository=${BACKEND_IMAGE} \
-                        --set image.tag=${DOCKER_TAG} \
+                    helm upgrade --install backend ./helm/backend ^
+                        --namespace todo-app ^
+                        --set image.repository=${BACKEND_IMAGE} ^
+                        --set image.tag=${DOCKER_TAG} ^
                         --wait
 
                     # Deploy frontend
-                    helm upgrade --install frontend ./helm/frontend \
-                        --namespace todo-app \
-                        --set image.repository=${FRONTEND_IMAGE} \
-                        --set image.tag=${DOCKER_TAG} \
+                    helm upgrade --install frontend ./helm/frontend ^
+                        --namespace todo-app ^
+                        --set image.repository=${FRONTEND_IMAGE} ^
+                        --set image.tag=${DOCKER_TAG} ^
                         --wait
                 """
             }
@@ -151,24 +151,24 @@ pipeline {
     post {
         always {
             echo 'Cleaning up workspace...'
-            deleteDir() // Cleanup workspace to ensure a fresh start for the next build
+            deleteDir()
         }
         success {
             echo 'Pipeline succeeded!'
             withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-                sh '''
-                curl -X POST -H "Content-type: application/json" \
-                    --data '{"text":"🎉 Pipeline succeeded! 🎉 Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}, Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}"}' $SLACK_WEBHOOK_URL
-                '''
+                bat """
+                curl -X POST -H "Content-type: application/json" ^
+                    --data "{\\"text\\":\\"🎉 Pipeline succeeded! 🎉 Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}, Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}\\"}" %SLACK_WEBHOOK_URL%
+                """
             }
         }
         failure {
             echo 'Pipeline failed!'
             withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-                sh '''
-                curl -X POST -H "Content-type: application/json" \
-                    --data '{"text":"❌ Pipeline failed! ❌ Check logs: ${BUILD_URL}"}' $SLACK_WEBHOOK_URL
-                '''
+                bat """
+                curl -X POST -H "Content-type: application/json" ^
+                    --data "{\\"text\\":\\"❌ Pipeline failed! ❌ Check logs: ${BUILD_URL}\\"}" %SLACK_WEBHOOK_URL%
+                """
             }
         }
     }

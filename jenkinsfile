@@ -7,7 +7,6 @@ pipeline {
         DOCKER_TAG = "2.0"                              // Tag for both backend and frontend images
         KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
         DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
-        SLACK_WEBHOOK_URL = credentials('Slack-webhook') // Slack Webhook URL Credential
     }
 
     stages {
@@ -20,14 +19,11 @@ pipeline {
         stage('Test Slack Notification') {
             steps {
                 echo 'Testing Slack Notification...'
-                script {
-                    def slackResponse = sh(
-                        script: """
-                        curl -X POST -H "Content-type: application/json" --data '{"text":"Test message from Jenkins Pipeline. DRY_RUN = ${env.DRY_RUN}"}' ${env.SLACK_WEBHOOK_URL}
-                        """,
-                        returnStdout: true
-                    ).trim()
-                    echo "Slack Response: ${slackResponse}"
+                withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+                    sh '''
+                    curl -X POST -H "Content-type: application/json" \
+                        --data '{"text":"Test message from Jenkins Pipeline. DRY_RUN = ${DRY_RUN}"}' $SLACK_WEBHOOK_URL
+                    '''
                 }
             }
         }
@@ -159,18 +155,20 @@ pipeline {
         }
         success {
             echo 'Pipeline succeeded!'
-            script {
-                sh """
-                curl -X POST -H "Content-type: application/json" --data '{"text":"🎉 Pipeline succeeded! 🎉 Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}, Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}"}' ${env.SLACK_WEBHOOK_URL}
-                """
+            withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh '''
+                curl -X POST -H "Content-type: application/json" \
+                    --data '{"text":"🎉 Pipeline succeeded! 🎉 Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}, Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}"}' $SLACK_WEBHOOK_URL
+                '''
             }
         }
         failure {
             echo 'Pipeline failed!'
-            script {
-                sh """
-                curl -X POST -H "Content-type: application/json" --data '{"text":"❌ Pipeline failed! ❌ Check logs: ${BUILD_URL}"}' ${env.SLACK_WEBHOOK_URL}
-                """
+            withCredentials([string(credentialsId: 'Slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh '''
+                curl -X POST -H "Content-type: application/json" \
+                    --data '{"text":"❌ Pipeline failed! ❌ Check logs: ${BUILD_URL}"}' $SLACK_WEBHOOK_URL
+                '''
             }
         }
     }

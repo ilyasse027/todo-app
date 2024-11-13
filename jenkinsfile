@@ -6,10 +6,14 @@ pipeline {
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
         DOCKER_TAG = "2.0"                             // Tag for both backend and frontend images
         KUBECONFIG = credentials('Kube config')        // Kubernetes config credential ID
+        DRY_RUN = false                                // Set to true for testing without actual execution
     }
 
     stages {
         stage('Checkout') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Cloning repository...'
                 checkout scm
@@ -17,6 +21,9 @@ pipeline {
         }
 
         stage('Install Dependencies') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Installing dependencies...'
                 sh '''
@@ -29,6 +36,9 @@ pipeline {
         }
 
         stage('Run Tests') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Running tests...'
                 sh '''
@@ -41,6 +51,9 @@ pipeline {
         }
 
         stage('Build Backend Image') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Building backend Docker image...'
                 script {
@@ -50,6 +63,9 @@ pipeline {
         }
 
         stage('Build Frontend Image') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Building frontend Docker image...'
                 script {
@@ -59,6 +75,9 @@ pipeline {
         }
 
         stage('Push Backend Image') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Pushing backend Docker image to Docker Hub...'
                 script {
@@ -70,6 +89,9 @@ pipeline {
         }
 
         stage('Push Frontend Image') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Pushing frontend Docker image to Docker Hub...'
                 script {
@@ -81,6 +103,9 @@ pipeline {
         }
 
         stage('Deploy to Kubernetes') {
+            when {
+                expression { return !env.DRY_RUN }      // Skip if DRY_RUN is true
+            }
             steps {
                 echo 'Deploying backend and frontend to Kubernetes...'
                 sh """
@@ -106,9 +131,14 @@ pipeline {
     }
 
     post {
+        always {
+            echo 'Cleaning up workspace...'
+            deleteDir() // Cleanup workspace to ensure a fresh start for the next build
+        }
         success {
             echo 'Pipeline succeeded!'
             slackSend(
+                channel: '#pipeline',
                 color: 'good',
                 message: """
                     🎉 Pipeline succeeded! 🎉
@@ -121,6 +151,7 @@ pipeline {
         failure {
             echo 'Pipeline failed!'
             slackSend(
+                channel: '#pipeline',
                 color: 'danger',
                 message: """
                     ❌ Pipeline failed! ❌

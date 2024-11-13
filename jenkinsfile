@@ -6,7 +6,8 @@ pipeline {
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
         DOCKER_TAG = "2.0"                              // Tag for both backend and frontend images
         KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
-        DRY_RUN = 'false'                                // Set to 'true' for testing without actual execution
+        DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
+        SLACK_WEBHOOK_URL = credentials('Slack-webhook') // Slack Webhook URL Credential
     }
 
     stages {
@@ -19,18 +20,21 @@ pipeline {
         stage('Test Slack Notification') {
             steps {
                 echo 'Testing Slack Notification...'
-                slackSend(
-                    channel: '#pipeline',
-                    color: 'good',
-                    message: "This is a test message from Jenkins Pipeline. DRY_RUN = ${env.DRY_RUN}",
-                    tokenCredentialId: 'Slack-webhook'
-                )
+                script {
+                    def slackResponse = sh(
+                        script: """
+                        curl -X POST -H "Content-type: application/json" --data '{"text":"Test message from Jenkins Pipeline. DRY_RUN = ${env.DRY_RUN}"}' ${env.SLACK_WEBHOOK_URL}
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    echo "Slack Response: ${slackResponse}"
+                }
             }
         }
 
         stage('Checkout') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Cloning repository...'
@@ -40,7 +44,7 @@ pipeline {
 
         stage('Install Dependencies') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Installing dependencies...'
@@ -55,7 +59,7 @@ pipeline {
 
         stage('Run Tests') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Running tests...'
@@ -70,7 +74,7 @@ pipeline {
 
         stage('Build Backend Image') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Building backend Docker image...'
@@ -82,7 +86,7 @@ pipeline {
 
         stage('Build Frontend Image') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Building frontend Docker image...'
@@ -94,7 +98,7 @@ pipeline {
 
         stage('Push Backend Image') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Pushing backend Docker image to Docker Hub...'
@@ -108,7 +112,7 @@ pipeline {
 
         stage('Push Frontend Image') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Pushing frontend Docker image to Docker Hub...'
@@ -122,7 +126,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             when {
-                expression { env.DRY_RUN != 'true' } // Skip if DRY_RUN is 'true'
+                expression { return env.DRY_RUN != 'true' }
             }
             steps {
                 echo 'Deploying backend and frontend to Kubernetes...'
@@ -155,28 +159,19 @@ pipeline {
         }
         success {
             echo 'Pipeline succeeded!'
-            slackSend(
-                channel: '#pipeline',
-                color: 'good',
-                message: """
-                    🎉 Pipeline succeeded! 🎉
-                    - Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}
-                    - Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}
-                """,
-                tokenCredentialId: 'Slack-webhook'
-            )
+            script {
+                sh """
+                curl -X POST -H "Content-type: application/json" --data '{"text":"🎉 Pipeline succeeded! 🎉 Backend Image: ${BACKEND_IMAGE}:${DOCKER_TAG}, Frontend Image: ${FRONTEND_IMAGE}:${DOCKER_TAG}"}' ${env.SLACK_WEBHOOK_URL}
+                """
+            }
         }
         failure {
             echo 'Pipeline failed!'
-            slackSend(
-                channel: '#pipeline',
-                color: 'danger',
-                message: """
-                    ❌ Pipeline failed! ❌
-                    - Check logs: ${BUILD_URL}
-                """,
-                tokenCredentialId: 'Slack-webhook'
-            )
+            script {
+                sh """
+                curl -X POST -H "Content-type: application/json" --data '{"text":"❌ Pipeline failed! ❌ Check logs: ${BUILD_URL}"}' ${env.SLACK_WEBHOOK_URL}
+                """
+            }
         }
     }
 }

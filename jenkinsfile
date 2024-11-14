@@ -56,55 +56,51 @@ pipeline {
             }
         }
 
-        stage('Build Backend Image') {
+        stage('Build Docker Images') {
             when {
                 expression { env.DRY_RUN != 'true' }
             }
             steps {
-                echo 'Building backend Docker image...'
-                script {
-                    docker.build("${BACKEND_IMAGE}:${DOCKER_TAG}", "backend/.")
-                }
-            }
-        }
-
-        stage('Build Frontend Image') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                echo 'Building frontend Docker image...'
-                script {
-                    docker.build("${FRONTEND_IMAGE}:${DOCKER_TAG}", "frontend/.")
-                }
-            }
-        }
-
-        stage('Push Backend Image') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                echo 'Pushing backend Docker image to Docker Hub...'
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                        docker.image("${BACKEND_IMAGE}:${DOCKER_TAG}").push()
+                parallel(
+                    backend: {
+                        echo 'Building backend Docker image...'
+                        script {
+                            docker.build("${BACKEND_IMAGE}:${DOCKER_TAG}", "backend/.")
+                        }
+                    },
+                    frontend: {
+                        echo 'Building frontend Docker image...'
+                        script {
+                            docker.build("${FRONTEND_IMAGE}:${DOCKER_TAG}", "frontend/.")
+                        }
                     }
-                }
+                )
             }
         }
 
-        stage('Push Frontend Image') {
+        stage('Push Docker Images') {
             when {
                 expression { env.DRY_RUN != 'true' }
             }
             steps {
-                echo 'Pushing frontend Docker image to Docker Hub...'
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                        docker.image("${FRONTEND_IMAGE}:${DOCKER_TAG}").push()
+                parallel(
+                    pushBackend: {
+                        echo 'Pushing backend Docker image to Docker Hub...'
+                        script {
+                            docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
+                                docker.image("${BACKEND_IMAGE}:${DOCKER_TAG}").push()
+                            }
+                        }
+                    },
+                    pushFrontend: {
+                        echo 'Pushing frontend Docker image to Docker Hub...'
+                        script {
+                            docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
+                                docker.image("${FRONTEND_IMAGE}:${DOCKER_TAG}").push()
+                            }
+                        }
                     }
-                }
+                )
             }
         }
 
@@ -115,19 +111,13 @@ pipeline {
             steps {
                 echo 'Deploying backend and frontend to Kubernetes...'
                 bat """
-                    # Upgrade or install backend
-                    helm upgrade --install backend D:/Projects/todo-app/todo-app-chart \
+                    helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
                         --namespace todo-app \
-                        --set image.repository=${BACKEND_IMAGE} \
-                        --set image.tag=${DOCKER_TAG} \
-                        --wait || echo "Error deploying backend"
-
-                    # Upgrade or install frontend
-                    helm upgrade --install frontend D:/Projects/todo-app/todo-app-chart \
-                        --namespace todo-app \
-                        --set image.repository=${FRONTEND_IMAGE} \
-                        --set image.tag=${DOCKER_TAG} \
-                        --wait || echo "Error deploying frontend"
+                        --set backend.image.repository=${BACKEND_IMAGE} \
+                        --set backend.image.tag=${DOCKER_TAG} \
+                        --set frontend.image.repository=${FRONTEND_IMAGE} \
+                        --set frontend.image.tag=${DOCKER_TAG} \
+                        --wait || echo "Error deploying applications"
                 """
             }
         }

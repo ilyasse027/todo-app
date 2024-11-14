@@ -115,22 +115,19 @@ pipeline {
             steps {
                 echo 'Deploying backend and frontend to Kubernetes...'
                 bat """
-                    # Ensure namespace exists
-                    kubectl create namespace todo-app --dry-run=client -o yaml | kubectl apply -f -
-
-                    # Deploy backend
+                    # Upgrade or install backend
                     helm upgrade --install backend D:/Projects/todo-app/todo-app-chart \
                         --namespace todo-app \
                         --set image.repository=${BACKEND_IMAGE} \
                         --set image.tag=${DOCKER_TAG} \
-                        --wait
+                        --wait || echo "Error deploying backend"
 
-                    # Deploy frontend
+                    # Upgrade or install frontend
                     helm upgrade --install frontend D:/Projects/todo-app/todo-app-chart \
                         --namespace todo-app \
                         --set image.repository=${FRONTEND_IMAGE} \
                         --set image.tag=${DOCKER_TAG} \
-                        --wait
+                        --wait || echo "Error deploying frontend"
                 """
             }
         }

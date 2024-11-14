@@ -112,12 +112,11 @@ pipeline {
                 echo 'Deploying backend and frontend to Kubernetes...'
                 bat """
                     helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
-                        --namespace todo-app \
-                        --set backend.image.repository=ilyassepro/unique-backend  \
-                        --set backend.image.tag=2.0 \
-                        --set frontend.image.repository=ilyassepro/unique-frontend  \
-                        --set frontend.image.tag=latest \
-                        --wait || echo "Error deploying applications"
+                    --namespace todo-app \
+                    --set backend.image=ilyassepro/unique-backend:2.0 \
+                    --set frontend.image=ilyassepro/unique-frontend:latest \
+                    --wait --timeout 10m0s || echo "Error deploying applications"   
+
                 """
             }
         }

@@ -6,7 +6,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "build": "mkdir -p dist",
-    "test": "vitest"
+    "test": "jest"
   },
   "keywords": [],
   "author": "",

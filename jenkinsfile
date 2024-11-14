@@ -108,22 +108,25 @@ pipeline {
             }
         }
 
-        stage('Upgrade Helm Releases') {
+        stage('Deploy to Kubernetes') {
             when {
                 expression { env.DRY_RUN != 'true' }
             }
             steps {
-                echo 'Upgrading Helm releases...'
+                echo 'Deploying backend and frontend to Kubernetes...'
                 bat """
-                    # Upgrade backend release
-                    helm upgrade backend D:/Projects/todo-app/todo-app-chart \
+                    # Ensure namespace exists
+                    kubectl create namespace todo-app --dry-run=client -o yaml | kubectl apply -f -
+
+                    # Deploy backend
+                    helm upgrade --install backend D:/Projects/todo-app/todo-app-chart \
                         --namespace todo-app \
                         --set image.repository=${BACKEND_IMAGE} \
                         --set image.tag=${DOCKER_TAG} \
                         --wait
 
-                    # Upgrade frontend release
-                    helm upgrade frontend D:/Projects/todo-app/todo-app-chart \
+                    # Deploy frontend
+                    helm upgrade --install frontend D:/Projects/todo-app/todo-app-chart \
                         --namespace todo-app \
                         --set image.repository=${FRONTEND_IMAGE} \
                         --set image.tag=${DOCKER_TAG} \

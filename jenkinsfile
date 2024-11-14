@@ -113,10 +113,10 @@ pipeline {
                 bat """
                     helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
                         --namespace todo-app \
-                        --set backend.image.repository=${BACKEND_IMAGE} \
-                        --set backend.image.tag=${DOCKER_TAG} \
-                        --set frontend.image.repository=${FRONTEND_IMAGE} \
-                        --set frontend.image.tag=${DOCKER_TAG} \
+                        --set backend.image.repository=ilyassepro/unique-backend  \
+                        --set backend.image.tag=2.0 \
+                        --set frontend.image.repository=ilyassepro/unique-frontend  \
+                        --set frontend.image.tag=latest \
                         --wait || echo "Error deploying applications"
                 """
             }

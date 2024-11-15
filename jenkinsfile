@@ -78,7 +78,7 @@ pipeline {
                     steps {
                         echo 'Scanning Backend Image...'
                         bat """
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
+                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
                         """
                     }
                 }
@@ -86,7 +86,7 @@ pipeline {
                     steps {
                         echo 'Scanning Frontend Image...'
                         bat """
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
+                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
                         """
                     }
                 }
@@ -139,7 +139,7 @@ pipeline {
             steps {
                 echo 'Scanning Kubernetes deployments...'
                 bat """
-                    trivy k8s --exit-code 1 --severity CRITICAL,HIGH --namespace todo-app deployment || echo "Kubernetes deployments have vulnerabilities!"
+                    trivy k8s --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH --namespace todo-app deployment || echo "Kubernetes deployments have vulnerabilities!"
                 """
             }
         }

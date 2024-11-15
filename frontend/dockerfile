@@ -3,27 +3,32 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Use a specific base image version to avoid vulnerabilities
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
 # Copy package.json and install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Copy application files
 COPY . .
-
-# Set the environment variable for Vite
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
 
 # Build the application with Vite
 RUN npm run build
 
 # Production stage with Nginx
-FROM nginx:1.23-alpine
+FROM nginx:1.25.2-alpine
 
-# Copy the build output from Vite to Nginx
+# Ensure the base image is up-to-date
+RUN apk --no-cache add \
+    curl \
+    libcrypto3 \
+    libssl3 \
+    libexpat \
+    && apk upgrade --no-cache
+
+# Copy the build output from the builder to Nginx
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Expose port 80

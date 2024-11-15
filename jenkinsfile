@@ -4,7 +4,8 @@ pipeline {
     environment {
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-        DOCKER_TAG = "2.0"                              // Tag for both backend and frontend images
+        BACKEND_TAG = "2.0"                             // Tag for the backend image
+        FRONTEND_TAG = "2.1"                            // Tag for the frontend image
         KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
         DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
     }
@@ -59,13 +60,13 @@ pipeline {
                     backend: {
                         echo 'Building backend Docker image...'
                         script {
-                            docker.build("${BACKEND_IMAGE}:${DOCKER_TAG}", "backend/.")
+                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
                         }
                     },
                     frontend: {
                         echo 'Building frontend Docker image...'
                         script {
-                            docker.build("${FRONTEND_IMAGE}:${DOCKER_TAG}", "frontend/.")
+                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
                         }
                     }
                 )
@@ -78,7 +79,7 @@ pipeline {
                     steps {
                         echo 'Scanning Backend Image...'
                         bat """
-                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
+                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
                         """
                     }
                 }
@@ -86,7 +87,7 @@ pipeline {
                     steps {
                         echo 'Scanning Frontend Image...'
                         bat """
-                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
+                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
                         """
                     }
                 }
@@ -103,7 +104,7 @@ pipeline {
                         echo 'Pushing backend Docker image to Docker Hub...'
                         script {
                             docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                                docker.image("${BACKEND_IMAGE}:${DOCKER_TAG}").push()
+                                docker.image("${BACKEND_IMAGE}:${BACKEND_TAG}").push()
                             }
                         }
                     },
@@ -111,7 +112,7 @@ pipeline {
                         echo 'Pushing frontend Docker image to Docker Hub...'
                         script {
                             docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                                docker.image("${FRONTEND_IMAGE}:${DOCKER_TAG}").push()
+                                docker.image("${FRONTEND_IMAGE}:${FRONTEND_TAG}").push()
                             }
                         }
                     }
@@ -128,8 +129,8 @@ pipeline {
                 bat """
                     helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
                     --namespace todo-app \
-                    --set backend.image=ilyassepro/unique-backend:2.0 \
-                    --set frontend.image=ilyassepro/unique-frontend:latest \
+                    --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} \
+                    --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} \
                     --wait --timeout 10m0s || echo "Error deploying applications"
                 """
             }

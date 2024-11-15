@@ -140,11 +140,12 @@ pipeline {
             steps {
                 echo 'Scanning Kubernetes deployments...'
                 bat """
-                    trivy k8s --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH --include-namespaces todo-app -o trivy_report.json -f json || echo "Kubernetes deployments have vulnerabilities!"
-
+                    trivy image --download-db-only
+                   trivy k8s --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH --include-namespaces todo-app -o C:/Reports/trivy_report.json -f json || echo "Kubernetes deployments have vulnerabilities!"
                 """
             }
         }
+
     }
 
     post {

@@ -6,7 +6,7 @@ backend:
   mongoDbUri: mongodb://admin:password@mongodb:27017/todo-app?authSource=admin
 
 frontend:
-  image: ilyassepro/unique-frontend:latest
+  image: ilyassepro/unique-frontend:2.2
   port: 80
   apiUrl: http://myapp.local/api/todos
 

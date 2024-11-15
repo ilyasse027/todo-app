@@ -10,12 +10,6 @@ pipeline {
     }
 
     stages {
-        stage('Debug DRY_RUN') {
-            steps {
-                echo "DRY_RUN is set to: ${env.DRY_RUN}"
-            }
-        }
-
         stage('Checkout') {
             when {
                 expression { env.DRY_RUN != 'true' }
@@ -78,6 +72,27 @@ pipeline {
             }
         }
 
+        stage('Scan Docker Images with Trivy') {
+            parallel {
+                stage('Scan Backend Image') {
+                    steps {
+                        echo 'Scanning Backend Image...'
+                        bat """
+                            trivy image --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
+                        """
+                    }
+                }
+                stage('Scan Frontend Image') {
+                    steps {
+                        echo 'Scanning Frontend Image...'
+                        bat """
+                            trivy image --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Push Docker Images') {
             when {
                 expression { env.DRY_RUN != 'true' }
@@ -115,8 +130,16 @@ pipeline {
                     --namespace todo-app \
                     --set backend.image=ilyassepro/unique-backend:2.0 \
                     --set frontend.image=ilyassepro/unique-frontend:latest \
-                    --wait --timeout 10m0s || echo "Error deploying applications"   
+                    --wait --timeout 10m0s || echo "Error deploying applications"
+                """
+            }
+        }
 
+        stage('Scan Kubernetes Deployments with Trivy') {
+            steps {
+                echo 'Scanning Kubernetes deployments...'
+                bat """
+                    trivy k8s --exit-code 1 --severity CRITICAL,HIGH --namespace todo-app deployment || echo "Kubernetes deployments have vulnerabilities!"
                 """
             }
         }

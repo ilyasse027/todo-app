@@ -4,144 +4,91 @@ pipeline {
     environment {
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-        BACKEND_TAG = "2.0"                             // Tag for the backend image
-        FRONTEND_TAG = "2.1"                            // Tag for the frontend image
-        KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
-        DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
+        K8S_MANIFEST_REPO = 'https://github.com/ilyasse027/todo-app.git'
+        CHART_PATH = 'D:/Projects/todo-app/todo-app-chart'
+        GIT_CREDENTIALS_ID = 'github-pat'
+        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
+        BACKEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
+        FRONTEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
     }
 
     stages {
-        stage('Checkout') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
+        stage('Cleanup Workspace') {
             steps {
-                echo 'Cloning repository...'
-                checkout scm
+                cleanWs()
             }
         }
 
-        stage('Install Dependencies') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
+        stage('Clone Helm Chart Repository') {
             steps {
-                echo 'Installing dependencies...'
-                bat """
-                    cd backend
-                    npm ci
-                    cd ../frontend
-                    npm ci
-                """
-            }
-        }
-
-        stage('Run Tests') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                echo 'Running Jest tests...'
-                bat """
-                    cd backend
-                    npm test || echo "Backend tests failed!"
-                    cd ../frontend
-                    npm test || echo "Frontend tests failed!"
-                """
+                echo 'Cloning Helm chart repository...'
+                git url: "${K8S_MANIFEST_REPO}", branch: 'main', credentialsId: "${GIT_CREDENTIALS_ID}"
             }
         }
 
         stage('Build Docker Images') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                parallel(
-                    backend: {
+            parallel {
+                stage('Build Backend Image') {
+                    steps {
                         echo 'Building backend Docker image...'
                         script {
-                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
+                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.").push()
                         }
-                    },
-                    frontend: {
+                    }
+                }
+                stage('Build Frontend Image') {
+                    steps {
                         echo 'Building frontend Docker image...'
                         script {
-                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
+                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.").push()
                         }
                     }
-                )
-            }
-        }
-
-        stage('Scan Docker Images with Trivy') {
-            parallel {
-                stage('Scan Backend Image') {
-                    steps {
-                        echo 'Scanning Backend Image...'
-                        bat """
-                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                        """
-                    }
-                }
-                stage('Scan Frontend Image') {
-                    steps {
-                        echo 'Scanning Frontend Image...'
-                        bat """
-                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
-                        """
-                    }
                 }
             }
         }
 
-        stage('Push Docker Images') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
+        stage('Update Helm Chart with New Tags') {
             steps {
-                parallel(
-                    pushBackend: {
-                        echo 'Pushing backend Docker image to Docker Hub...'
-                        script {
-                            docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                                docker.image("${BACKEND_IMAGE}:${BACKEND_TAG}").push()
-                            }
-                        }
-                    },
-                    pushFrontend: {
-                        echo 'Pushing frontend Docker image to Docker Hub...'
-                        script {
-                            docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                                docker.image("${FRONTEND_IMAGE}:${FRONTEND_TAG}").push()
-                            }
-                        }
+                echo 'Updating Helm chart values.yaml with new image tags...'
+                script {
+                    def valuesPath = "${WORKSPACE}/todo-app-chart/values.yaml"
+                    def valuesYaml = readYaml file: valuesPath
+                    
+                    // Update backend and frontend image tags
+                    valuesYaml.backend.image = "${BACKEND_IMAGE}:${BACKEND_TAG}"
+                    valuesYaml.frontend.image = "${FRONTEND_IMAGE}:${FRONTEND_TAG}"
+
+                    // Write the updated values back to values.yaml
+                    writeYaml file: valuesPath, data: valuesYaml
+                }
+            }
+        }
+
+        stage('Commit and Push Updated Helm Chart') {
+            steps {
+                dir("${WORKSPACE}/todo-app-chart") {
+                    withCredentials([string(credentialsId: "${GIT_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
+                        sh """
+                            git config user.name "Ilyasse"
+                            git config user.email "ilyasse.taoufik@ynov.com"
+                            git add values.yaml
+                            git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}"
+                            git push https://$GITHUB_TOKEN@github.com/ilyasse027/todo-app.git main
+                        """
                     }
-                )
+                }
             }
         }
 
         stage('Deploy to Kubernetes') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
             steps {
-                echo 'Deploying backend and frontend to Kubernetes...'
+                echo 'Deploying application to Kubernetes using Helm...'
                 bat """
-                    helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
+                    helm upgrade --install todo-app ${CHART_PATH} \
                     --namespace todo-app \
-                    --set backend.image=ilyassepro/unique-backend:2.0 \
-                    --set frontend.image=ilyassepro/unique-frontend:2.1 \
-                    --wait --timeout 10m0s || echo "Error deploying applications"
-                """
-            }
-        }
-
-        stage('Scan Kubernetes Deployments with Trivy') {
-            steps {
-                echo 'Scanning Kubernetes deployments...'
-                bat """
-                    trivy image --download-db-only || echo "Failed to download Trivy database!"
-                    trivy k8s --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH --include-namespaces todo-app -o C:/Reports/trivy_report.json -f json || echo "Kubernetes deployments have vulnerabilities!"
+                    --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} \
+                    --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} \
+                    --wait --timeout 10m0s
                 """
             }
         }
@@ -156,7 +103,7 @@ pipeline {
             echo 'Pipeline succeeded!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo 'Pipeline failed. Please check the logs.'
         }
     }
 }

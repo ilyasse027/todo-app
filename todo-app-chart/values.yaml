@@ -1,7 +1,7 @@
 namespace: todo-app
 
 backend:
-  image: ilyassepro/unique-backend:2.0
+  image: ilyassepro/unique-backend:2.2
   port: 5000
   mongoDbUri: mongodb://admin:password@mongodb:27017/todo-app?authSource=admin
 

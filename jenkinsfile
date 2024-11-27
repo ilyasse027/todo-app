@@ -48,7 +48,7 @@ pipeline {
         }
 
         stage('Update Helm Chart with New Tags') {
-            teps {
+            steps {
                 echo 'Updating Helm chart values.yaml with new image tags...'
                 script {
                     def valuesPath = "${WORKSPACE}/todo-app-chart/values.yaml"
@@ -76,48 +76,7 @@ pipeline {
             }
         }
 
-
         stage('Commit and Push Updated Helm Chart') {
             steps {
                 dir("${WORKSPACE}/todo-app-chart") {
-                    withCredentials([string(credentialsId: "${GIT_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
-                        bat """
-                            git config user.name "Ilyasse"
-                            git config user.email "ilyasse.taoufik@ynov.com"
-                            git status
-                            git add values.yaml
-                            git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
-                            git push https://$GITHUB_TOKEN@github.com/ilyasse027/todo-app.git main
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                echo 'Deploying application to Kubernetes using Helm...'
-                bat """
-                    helm upgrade --install todo-app ${CHART_PATH} \
-                    --namespace todo-app \
-                    --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} \
-                    --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} \
-                    --wait --timeout 10m0s
-                """
-            }
-        }
-    }
-
-    post {
-        always {
-            echo 'Cleaning up workspace...'
-            deleteDir()
-        }
-        success {
-            echo 'Pipeline succeeded!'
-        }
-        failure {
-            echo 'Pipeline failed. Please check the logs.'
-        }
-    }
-}
+                    withCredentials

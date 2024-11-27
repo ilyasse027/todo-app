@@ -5,7 +5,7 @@ pipeline {
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
         K8S_MANIFEST_REPO = 'https://github.com/ilyasse027/todo-app.git'
-        CHART_PATH = "${WORKSPACE}/todo-app-chart"
+        CHART_PATH = 'D:/Projects/todo-app/todo-app-chart'
         GIT_CREDENTIALS_ID = 'github-pat'
         DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
         BACKEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
@@ -21,7 +21,6 @@ pipeline {
 
         stage('Clone Helm Chart Repository') {
             steps {
-                echo 'Cloning Helm chart repository...'
                 git url: "${K8S_MANIFEST_REPO}", branch: 'main', credentialsId: "${GIT_CREDENTIALS_ID}"
             }
         }
@@ -51,17 +50,17 @@ pipeline {
             steps {
                 echo 'Updating Helm chart values.yaml with new image tags...'
                 script {
-                    def valuesPath = "${WORKSPACE}/todo-app-chart/values.yaml"
+                    def valuesPath = "D:/Projects/todo-app/todo-app-chart/values.yaml"
 
                     // Check if the file exists
                     if (!fileExists(valuesPath)) {
                         error "values.yaml file not found at ${valuesPath}"
                     }
 
-                    echo "Reading values.yaml from ${valuesPath}"
+                    echo "Reading values.yaml from ${valuesPath}..."
                     def valuesYaml = readYaml file: valuesPath
 
-                    echo "Current values.yaml content: ${valuesYaml}"
+                    echo "Initial values.yaml content: ${valuesYaml}"
 
                     // Update backend and frontend image tags
                     valuesYaml.backend.image = "${BACKEND_IMAGE}:${BACKEND_TAG}"

@@ -48,34 +48,34 @@ pipeline {
         }
 
         stage('Update Helm Chart with New Tags') {
-            steps {
+            teps {
                 echo 'Updating Helm chart values.yaml with new image tags...'
                 script {
                     def valuesPath = "${WORKSPACE}/todo-app-chart/values.yaml"
 
-                    // Debugging: Validate file existence
-                    bat "dir /s ${WORKSPACE}" // List workspace files
-
+                    // Check if the file exists
                     if (!fileExists(valuesPath)) {
-                        error "File not found: ${valuesPath}"
+                        error "values.yaml file not found at ${valuesPath}"
                     }
 
-                    echo "File exists: ${valuesPath}"
-
-                    // Read and modify YAML
+                    echo "Reading values.yaml from ${valuesPath}"
                     def valuesYaml = readYaml file: valuesPath
-                    echo "YAML content before update: ${valuesYaml}"
 
+                    echo "Current values.yaml content: ${valuesYaml}"
+
+                    // Update backend and frontend image tags
                     valuesYaml.backend.image = "${BACKEND_IMAGE}:${BACKEND_TAG}"
                     valuesYaml.frontend.image = "${FRONTEND_IMAGE}:${FRONTEND_TAG}"
 
-                    echo "YAML content after update: ${valuesYaml}"
+                    echo "Updated values.yaml content: ${valuesYaml}"
 
-                    // Write updated YAML
+                    // Write the updated values back to values.yaml
                     writeYaml file: valuesPath, data: valuesYaml
+                    echo "Successfully updated ${valuesPath} with new image tags."
                 }
             }
         }
+
 
         stage('Commit and Push Updated Helm Chart') {
             steps {

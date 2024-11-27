@@ -53,23 +53,25 @@ pipeline {
                 script {
                     def valuesPath = "${WORKSPACE}/todo-app-chart/values.yaml"
 
-                    // Debugging: Verify the file exists
+                    // Debugging: Validate file existence
+                    sh "ls -R ${WORKSPACE}" // List workspace files
+
                     if (!fileExists(valuesPath)) {
                         error "File not found: ${valuesPath}"
                     }
 
-                    // Read and debug YAML
-                    def valuesYaml = readYaml file: valuesPath
-                    echo "Before update: ${valuesYaml}"
+                    echo "File exists: ${valuesPath}"
 
-                    // Update backend and frontend image tags
+                    // Read and modify YAML
+                    def valuesYaml = readYaml file: valuesPath
+                    echo "YAML content before update: ${valuesYaml}"
+
                     valuesYaml.backend.image = "${BACKEND_IMAGE}:${BACKEND_TAG}"
                     valuesYaml.frontend.image = "${FRONTEND_IMAGE}:${FRONTEND_TAG}"
 
-                    // Debug updated YAML
-                    echo "After update: ${valuesYaml}"
+                    echo "YAML content after update: ${valuesYaml}"
 
-                    // Write the updated values back to values.yaml
+                    // Write updated YAML
                     writeYaml file: valuesPath, data: valuesYaml
                 }
             }
@@ -82,126 +84,7 @@ pipeline {
                         sh """
                             git config user.name "Ilyasse"
                             git config user.email "ilyasse.taoufik@ynov.com"
-                            git add values.yaml
-                            git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
-                            git push https://$GITHUB_TOKEN@github.com/ilyasse027/todo-app.git main
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                echo 'Deploying application to Kubernetes using Helm...'
-                bat """
-                    helm upgrade --install todo-app ${CHART_PATH} \
-                    --namespace todo-app \
-                    --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} \
-                    --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} \
-                    --wait --timeout 10m0s
-                """
-            }
-        }
-    }
-
-    post {
-        always {
-            echo 'Cleaning up workspace...'
-            deleteDir()
-        }
-        success {
-            echo 'Pipeline succeeded!'
-        }
-        failure {
-            echo 'Pipeline failed. Please check the logs.'
-        }
-    }
-}
-pipeline {
-    agent any
-
-    environment {
-        BACKEND_IMAGE = 'ilyassepro/unique-backend'
-        FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-        K8S_MANIFEST_REPO = 'https://github.com/ilyasse027/todo-app.git'
-        CHART_PATH = 'D:/Projects/todo-app/todo-app-chart'
-        GIT_CREDENTIALS_ID = 'github-pat'
-        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
-        BACKEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
-        FRONTEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
-    }
-
-    stages {
-        stage('Cleanup Workspace') {
-            steps {
-                cleanWs()
-            }
-        }
-
-        stage('Clone Helm Chart Repository') {
-            steps {
-                echo 'Cloning Helm chart repository...'
-                git url: "${K8S_MANIFEST_REPO}", branch: 'main', credentialsId: "${GIT_CREDENTIALS_ID}"
-            }
-        }
-
-        stage('Build Docker Images') {
-            parallel {
-                stage('Build Backend Image') {
-                    steps {
-                        echo 'Building backend Docker image...'
-                        script {
-                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.").push()
-                        }
-                    }
-                }
-                stage('Build Frontend Image') {
-                    steps {
-                        echo 'Building frontend Docker image...'
-                        script {
-                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.").push()
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Update Helm Chart with New Tags') {
-            steps {
-                echo 'Updating Helm chart values.yaml with new image tags...'
-                script {
-                    def valuesPath = "${WORKSPACE}/todo-app-chart/values.yaml"
-
-                    // Debugging: Verify the file exists
-                    if (!fileExists(valuesPath)) {
-                        error "File not found: ${valuesPath}"
-                    }
-
-                    // Read and debug YAML
-                    def valuesYaml = readYaml file: valuesPath
-                    echo "Before update: ${valuesYaml}"
-
-                    // Update backend and frontend image tags
-                    valuesYaml.backend.image = "${BACKEND_IMAGE}:${BACKEND_TAG}"
-                    valuesYaml.frontend.image = "${FRONTEND_IMAGE}:${FRONTEND_TAG}"
-
-                    // Debug updated YAML
-                    echo "After update: ${valuesYaml}"
-
-                    // Write the updated values back to values.yaml
-                    writeYaml file: valuesPath, data: valuesYaml
-                }
-            }
-        }
-
-        stage('Commit and Push Updated Helm Chart') {
-            steps {
-                dir("${WORKSPACE}/todo-app-chart") {
-                    withCredentials([string(credentialsId: "${GIT_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
-                        sh """
-                            git config user.name "Ilyasse"
-                            git config user.email "ilyasse.taoufik@ynov.com"
+                            git status
                             git add values.yaml
                             git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
                             git push https://$GITHUB_TOKEN@github.com/ilyasse027/todo-app.git main

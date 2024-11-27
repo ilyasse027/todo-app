@@ -54,7 +54,7 @@ pipeline {
                     def valuesPath = "${WORKSPACE}/todo-app-chart/values.yaml"
 
                     // Debugging: Validate file existence
-                    sh "ls -R ${WORKSPACE}" // List workspace files
+                    bat "dir /s ${WORKSPACE}" // List workspace files
 
                     if (!fileExists(valuesPath)) {
                         error "File not found: ${valuesPath}"
@@ -81,7 +81,7 @@ pipeline {
             steps {
                 dir("${WORKSPACE}/todo-app-chart") {
                     withCredentials([string(credentialsId: "${GIT_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
-                        sh """
+                        bat """
                             git config user.name "Ilyasse"
                             git config user.email "ilyasse.taoufik@ynov.com"
                             git status

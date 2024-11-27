@@ -5,7 +5,7 @@ pipeline {
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
         K8S_MANIFEST_REPO = 'https://github.com/ilyasse027/todo-app.git'
-        CHART_PATH = 'D:/Projects/todo-app/todo-app-chart'
+        CHART_PATH = "${WORKSPACE}/todo-app-chart"
         GIT_CREDENTIALS_ID = 'github-pat'
         DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
         BACKEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
@@ -58,32 +58,20 @@ pipeline {
                         error "values.yaml file not found at ${valuesPath}"
                     }
 
-                    // Debug: Output the file path
-                    echo "Values file path: ${valuesPath}"
-
-                    // Debug: List contents of the directory
-                    bat "dir ${WORKSPACE}\\todo-app-chart"
-
                     echo "Reading values.yaml from ${valuesPath}"
                     def valuesYaml = readYaml file: valuesPath
 
-                    // Debug: Output the current content of values.yaml
                     echo "Current values.yaml content: ${valuesYaml}"
 
                     // Update backend and frontend image tags
                     valuesYaml.backend.image = "${BACKEND_IMAGE}:${BACKEND_TAG}"
                     valuesYaml.frontend.image = "${FRONTEND_IMAGE}:${FRONTEND_TAG}"
 
-                    // Debug: Output the updated content
                     echo "Updated values.yaml content: ${valuesYaml}"
 
                     // Write the updated values back to values.yaml
-                    try {
-                        writeYaml file: valuesPath, data: valuesYaml
-                        echo "Successfully updated ${valuesPath} with new image tags."
-                    } catch (Exception e) {
-                        error "Failed to write to values.yaml: ${e.getMessage()}"
-                    }
+                    writeYaml file: valuesPath, data: valuesYaml
+                    echo "Successfully updated ${valuesPath} with new image tags."
                 }
             }
         }

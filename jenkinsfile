@@ -9,14 +9,13 @@ pipeline {
        
        // Versions
        BACKEND_VERSION_BASE = '3.3'
-       FRONTEND_VERSION_BASE = '2.2'    
+       FRONTEND_VERSION_BASE = '2.2'
        BUILD_NUMBER = "${env.BUILD_NUMBER}"
        BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"
        FRONTEND_TAG = "${FRONTEND_VERSION_BASE}.${BUILD_NUMBER}"
        
        // Credentials
        KUBECONFIG = credentials('Kube config')
-       GIT_CREDENTIALS_ID = "Credentials for GIT"
        DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
        TRIVY_CREDENTIALS_ID = "PAT for trivy"
        
@@ -71,24 +70,24 @@ pipeline {
 
        stage('Run Tests') {
            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                echo 'Running Jest tests...'
-                bat """
-                    cd backend
-                    npm test || echo "Backend tests failed!"
-                    cd ../frontend
-                    npm test || echo "Frontend tests failed!"
-                """
-            }
-        }
+               expression { env.DRY_RUN != 'true' }
+           }
+           steps {
+               echo 'Running Jest tests...'
+               bat """
+                   cd backend
+                   npm test || echo "Backend tests failed!"
+                   cd ../frontend
+                   npm test || echo "Frontend tests failed!"
+               """
+           }
+       }
 
        stage('Clone Helm Chart Repository') {
            steps {
                dir("${K8S_REPO_PATH}") {
                    git branch: 'main', 
-                       credentialsId: "${GIT_CREDENTIALS_ID}",
+                       credentialsId: 'Credentials for GIT',
                        url: "${GITHUB_REPO}"
                }
            }
@@ -97,9 +96,9 @@ pipeline {
        stage('Docker Login') {
            steps {
                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", 
-                    usernameVariable: 'DOCKER_USER', 
-                    passwordVariable: 'DOCKER_PASS')]) {
-                    bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
+                   usernameVariable: 'DOCKER_USER', 
+                   passwordVariable: 'DOCKER_PASS')]) {
+                   bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
                }
            }
        }
@@ -165,36 +164,36 @@ pipeline {
 
        stage('Update Helm Values and Push') {
            steps {
-                dir("${K8S_REPO_PATH}/todo-app-chart") {  // Ajout du sous-dossier todo-app-chart
-                    script {
-                        // Update values.yaml
-                        def valuesPath = "values.yaml"
-                        def valuesContent = readFile(valuesPath)
-                        valuesContent = valuesContent.replaceAll(
-                            "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
-                            "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
-                        )
-                        valuesContent = valuesContent.replaceAll(
-                            "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
-                            "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
-                        )
-                        writeFile file: valuesPath, text: valuesContent
+               dir("${K8S_REPO_PATH}/todo-app-chart") {
+                   script {
+                       // Update values.yaml
+                       def valuesPath = "values.yaml"
+                       def valuesContent = readFile(valuesPath)
+                       valuesContent = valuesContent.replaceAll(
+                           "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
+                           "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
+                       )
+                       valuesContent = valuesContent.replaceAll(
+                           "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
+                           "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
+                       )
+                       writeFile file: valuesPath, text: valuesContent
 
-                        // Configure Git and Push
-                        withCredentials([usernamePassword(credentialsId: 'Credentials for GIT', 
+                       // Configure Git and Push
+                       withCredentials([usernamePassword(credentialsId: 'Credentials for GIT', 
                            usernameVariable: 'GIT_USERNAME', 
                            passwordVariable: 'GIT_PASSWORD')]) {
-                            bat """
-                                git config --global user.name "Jenkins"
-                                git config --global user.email "jenkins@example.com"
-                                git add values.yaml
-                                git commit -m "Update images to version Backend: ${BACKEND_TAG}, Frontend: ${FRONTEND_TAG}"
-                                git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
-                            """
-                        }
-                    }
-                }
-            }
+                           bat """
+                               git config --global user.name "Jenkins"
+                               git config --global user.email "jenkins@example.com"
+                               git add values.yaml
+                               git commit -m "Update images to version Backend: ${BACKEND_TAG}, Frontend: ${FRONTEND_TAG}"
+                               git push https://%GIT_USERNAME%:%GIT_PASSWORD%@github.com/ilyasse027/todo-app.git main
+                           """
+                       }
+                   }
+               }
+           }
        }
 
        stage('Deploy to Kubernetes') {

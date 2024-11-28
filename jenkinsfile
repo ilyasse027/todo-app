@@ -206,19 +206,23 @@ pipeline {
 
     post {
        always {
-           script {
-               try {
-                   bat """
-                       docker logout
-                       docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG} || true
-                       docker rmi ${env.BACKEND_IMAGE}:latest || true
-                       docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG} || true
-                       docker rmi ${env.FRONTEND_IMAGE}:latest || true
-                   """
-               } catch (Exception e) {
-                   echo "Warning: Error during cleanup: ${e.getMessage()}"
-               } finally {
-                   cleanWs()
+           node {
+               ws("${env.WORKSPACE}") {
+                   script {
+                        try {
+                            bat """
+                                docker logout
+                                docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG} || true
+                                docker rmi ${env.BACKEND_IMAGE}:latest || true
+                                docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG} || true
+                                docker rmi ${env.FRONTEND_IMAGE}:latest || true
+                            """
+                        } catch (Exception e) {
+                            echo "Warning: Error during cleanup: ${e.getMessage()}"
+                        } finally {
+                            cleanWs()
+                        }
+                    }
                }
            }
        }

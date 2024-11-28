@@ -2,24 +2,25 @@ pipeline {
     agent any
 
     environment {
-        // Images and repositories
+        // Images et repos
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
         GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"
-
+        
         // Versions
         BACKEND_VERSION_BASE = '3.3'
         FRONTEND_VERSION_BASE = '2.2'
         BUILD_NUMBER = "${env.BUILD_NUMBER}"
         BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"
         FRONTEND_TAG = "${FRONTEND_VERSION_BASE}.${BUILD_NUMBER}"
-
+        
         // Credentials
         KUBECONFIG = credentials('Kube config')
         DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
+        TRIVY_CREDENTIALS_ID = "PAT for trivy"
         GITHUB_TOKEN = credentials('Credentials for GIT')
-
-        // Other configurations
+        
+        // Autres configurations
         DRY_RUN = 'false'
         K8S_REPO_PATH = "${WORKSPACE}/todo-app-chart"
     }
@@ -206,15 +207,20 @@ pipeline {
 
     post {
        always {
-           node(null) {
-               script {
+           script {
+               def backendImage = env.BACKEND_IMAGE
+               def frontendImage = env.FRONTEND_IMAGE
+               def backendTag = env.BACKEND_TAG
+               def frontendTag = env.FRONTEND_TAG
+               
+               node(null) {
                    try {
                        bat """
                            docker logout
-                           (docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG}) || exit 0
-                           (docker rmi ${env.BACKEND_IMAGE}:latest) || exit 0
-                           (docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG}) || exit 0
-                           (docker rmi ${env.FRONTEND_IMAGE}:latest) || exit 0
+                           (docker rmi ${backendImage}:${backendTag}) || exit 0
+                           (docker rmi ${backendImage}:latest) || exit 0
+                           (docker rmi ${frontendImage}:${frontendTag}) || exit 0
+                           (docker rmi ${frontendImage}:latest) || exit 0
                        """
                    } catch (Exception e) {
                        echo "Warning: Error during cleanup: ${e.getMessage()}"

@@ -71,27 +71,18 @@ pipeline {
 
        stage('Run Tests') {
            when {
-               expression { env.DRY_RUN != 'true' }
-           }
-           steps {
-               parallel(
-                   backend: {
-                       echo 'Running backend tests...'
-                       bat """
-                           cd backend
-                           npm test || echo "Backend tests failed!"
-                       """
-                   },
-                   frontend: {
-                       echo 'Running frontend tests...'
-                       bat """
-                           cd frontend
-                           npx vitest run || echo "Frontend tests failed!"
-                       """
-                   }
-               )
-           }
-       }
+                expression { env.DRY_RUN != 'true' }
+            }
+            steps {
+                echo 'Running Jest tests...'
+                bat """
+                    cd backend
+                    npm test || echo "Backend tests failed!"
+                    cd ../frontend
+                    npm test || echo "Frontend tests failed!"
+                """
+            }
+        }
 
        stage('Clone Helm Chart Repository') {
            steps {

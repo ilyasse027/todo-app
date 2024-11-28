@@ -78,7 +78,8 @@ pipeline {
                     steps {
                         echo 'Scanning Backend Image...'
                         bat """
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
+                            set TRIVY_AUTH_TOKEN=your_github_token_here
+                            trivy image --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG%
                         """
                     }
                 }
@@ -86,7 +87,8 @@ pipeline {
                     steps {
                         echo 'Scanning Frontend Image...'
                         bat """
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
+                            set TRIVY_AUTH_TOKEN=your_github_token_here
+                            trivy image --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG%
                         """
                     }
                 }

@@ -206,7 +206,7 @@ pipeline {
 
     post {
         always {
-            node(any) {  // Ensure we have a workspace
+            node('built-in') {  // Ensure we have a workspace
                 script {
                     try {
                         bat """

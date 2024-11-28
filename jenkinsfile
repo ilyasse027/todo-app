@@ -4,7 +4,8 @@ pipeline {
     environment {
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-        DOCKER_TAG = "2.2"                              // Tag for both backend and frontend images
+        BACKEND_TAG = "2.2"                             // Tag for the backend image
+        FRONTEND_TAG = "2.2"                            // Tag for the frontend image
         KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
         DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
     }
@@ -59,13 +60,13 @@ pipeline {
                     backend: {
                         echo 'Building backend Docker image...'
                         script {
-                            docker.build("${BACKEND_IMAGE}:${DOCKER_TAG}", "backend/.")
+                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
                         }
                     },
                     frontend: {
                         echo 'Building frontend Docker image...'
                         script {
-                            docker.build("${FRONTEND_IMAGE}:${DOCKER_TAG}", "frontend/.")
+                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
                         }
                     }
                 )
@@ -77,21 +78,17 @@ pipeline {
                 stage('Scan Backend Image') {
                     steps {
                         echo 'Scanning Backend Image...'
-                        withCredentials([string(credentialsId: 'github-trivy-token', variable: 'TRIVY_AUTH_TOKEN')]) {
-                            bat """
-                                trivy image --skip-update --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
-                            """
-                        }
+                        bat """
+                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                        """
                     }
                 }
                 stage('Scan Frontend Image') {
                     steps {
                         echo 'Scanning Frontend Image...'
-                        withCredentials([string(credentialsId: 'github-trivy-token', variable: 'TRIVY_AUTH_TOKEN')]) {
-                            bat """
-                                trivy image --skip-update --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
-                            """
-                        }
+                        bat """
+                            trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                        """
                     }
                 }
             }
@@ -107,7 +104,7 @@ pipeline {
                         echo 'Pushing backend Docker image to Docker Hub...'
                         script {
                             docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                                docker.image("${BACKEND_IMAGE}:${DOCKER_TAG}").push()
+                                docker.image("${BACKEND_IMAGE}:${BACKEND_TAG}").push()
                             }
                         }
                     },
@@ -115,7 +112,7 @@ pipeline {
                         echo 'Pushing frontend Docker image to Docker Hub...'
                         script {
                             docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
-                                docker.image("${FRONTEND_IMAGE}:${DOCKER_TAG}").push()
+                                docker.image("${FRONTEND_IMAGE}:${FRONTEND_TAG}").push()
                             }
                         }
                     }
@@ -132,8 +129,8 @@ pipeline {
                 bat """
                     helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
                     --namespace todo-app \
-                    --set backend.image=${BACKEND_IMAGE}:${DOCKER_TAG} \
-                    --set frontend.image=${FRONTEND_IMAGE}:${DOCKER_TAG} \
+                    --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} \
+                    --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} \
                     --wait --timeout 10m0s || echo "Error deploying applications"
                 """
             }
@@ -142,11 +139,10 @@ pipeline {
         stage('Scan Kubernetes Deployments with Trivy') {
             steps {
                 echo 'Scanning Kubernetes deployments...'
-                withCredentials([string(credentialsId: 'github-trivy-token', variable: 'TRIVY_AUTH_TOKEN')]) {
-                    bat """
-                        trivy k8s --exit-code 1 --severity CRITICAL,HIGH --namespace todo-app deployment || echo "Kubernetes deployments have vulnerabilities!"
-                    """
-                }
+                bat """
+                    trivy image --download-db-only || echo "Failed to download Trivy database!"
+                    trivy k8s --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH --include-namespaces todo-app -o C:/Reports/trivy_report.json -f json || echo "Kubernetes deployments have vulnerabilities!"
+                """
             }
         }
     }

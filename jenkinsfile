@@ -86,7 +86,7 @@ pipeline {
                        echo 'Running frontend tests...'
                        bat """
                            cd frontend
-                           npm test || echo "Frontend tests failed!"
+                           npx vitest run || echo "Frontend tests failed!"
                        """
                    }
                )

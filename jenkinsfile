@@ -163,24 +163,24 @@ pipeline {
        }
 
        stage('Update Helm Values and Push') {
-           steps {
-               dir("${K8S_REPO_PATH}/todo-app-chart") {
-                   script {
-                       // Update values.yaml
-                       def valuesPath = "values.yaml"
-                       def valuesContent = readFile(valuesPath)
-                       valuesContent = valuesContent.replaceAll(
-                           "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
-                           "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
-                       )
-                       valuesContent = valuesContent.replaceAll(
-                           "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
-                           "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
-                       )
-                       writeFile file: valuesPath, text: valuesContent
+            steps {
+                dir("${WORKSPACE}/todo-app-chart") {
+                    script {
+                        // Update values.yaml
+                        def valuesPath = "values.yaml"
+                        def valuesContent = readFile(valuesPath)
+                        valuesContent = valuesContent.replaceAll(
+                            "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
+                            "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
+                        )
+                        valuesContent = valuesContent.replaceAll(
+                            "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
+                            "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
+                        )
+                        writeFile file: valuesPath, text: valuesContent
 
-                       // Configure Git and Push
-                       withCredentials([string(credentialsId: "Credentials for GIT", variable: 'GITHUB_TOKEN')]) {
+                        // Configure Git and Push
+                        withCredentials([string(credentialsId: "Credentials for GIT", variable: 'GITHUB_TOKEN')]) {
                             bat """
                                 git config user.name "Ilyasse"
                                 git config user.email "ilyasse.taoufik@ynov.com"
@@ -190,10 +190,10 @@ pipeline {
                                 git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
                             """
                         }
-                   }
-               }
-           }
-       }
+                    }
+                }
+            }
+        }
 
        stage('Deploy to Kubernetes') {
            when {

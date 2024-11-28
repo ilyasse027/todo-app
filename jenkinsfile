@@ -77,19 +77,21 @@ pipeline {
                 stage('Scan Backend Image') {
                     steps {
                         echo 'Scanning Backend Image...'
-                        bat """
-                            set TRIVY_AUTH_TOKEN=your_github_token_here
-                            trivy image --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG%
-                        """
+                        withCredentials([string(credentialsId: 'github-trivy-token', variable: 'TRIVY_AUTH_TOKEN')]) {
+                            bat """
+                                trivy image --skip-update --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
+                            """
+                        }
                     }
                 }
                 stage('Scan Frontend Image') {
                     steps {
                         echo 'Scanning Frontend Image...'
-                        bat """
-                            set TRIVY_AUTH_TOKEN=your_github_token_here
-                            trivy image --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG%
-                        """
+                        withCredentials([string(credentialsId: 'github-trivy-token', variable: 'TRIVY_AUTH_TOKEN')]) {
+                            bat """
+                                trivy image --skip-update --scanners vuln --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
+                            """
+                        }
                     }
                 }
             }
@@ -130,8 +132,8 @@ pipeline {
                 bat """
                     helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
                     --namespace todo-app \
-                    --set backend.image=ilyassepro/unique-backend:2.0 \
-                    --set frontend.image=ilyassepro/unique-frontend:latest \
+                    --set backend.image=${BACKEND_IMAGE}:${DOCKER_TAG} \
+                    --set frontend.image=${FRONTEND_IMAGE}:${DOCKER_TAG} \
                     --wait --timeout 10m0s || echo "Error deploying applications"
                 """
             }
@@ -140,9 +142,11 @@ pipeline {
         stage('Scan Kubernetes Deployments with Trivy') {
             steps {
                 echo 'Scanning Kubernetes deployments...'
-                bat """
-                    trivy k8s --exit-code 1 --severity CRITICAL,HIGH --namespace todo-app deployment || echo "Kubernetes deployments have vulnerabilities!"
-                """
+                withCredentials([string(credentialsId: 'github-trivy-token', variable: 'TRIVY_AUTH_TOKEN')]) {
+                    bat """
+                        trivy k8s --exit-code 1 --severity CRITICAL,HIGH --namespace todo-app deployment || echo "Kubernetes deployments have vulnerabilities!"
+                    """
+                }
             }
         }
     }

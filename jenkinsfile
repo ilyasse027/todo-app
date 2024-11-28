@@ -18,6 +18,7 @@ pipeline {
        KUBECONFIG = credentials('Kube config')
        DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
        TRIVY_CREDENTIALS_ID = "PAT for trivy"
+       GITHUB_TOKEN = credentials('Credentials for GIT')
        
        // Autres configurations
        DRY_RUN = 'false'

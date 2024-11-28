@@ -206,15 +206,15 @@ pipeline {
 
     post {
        always {
-           node(null) {  // Using null to run on any available node
+           node(null) {
                script {
                    try {
                        bat """
                            docker logout
-                           docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG} || true
-                           docker rmi ${env.BACKEND_IMAGE}:latest || true
-                           docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG} || true
-                           docker rmi ${env.FRONTEND_IMAGE}:latest || true
+                           (docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG}) || exit 0
+                           (docker rmi ${env.BACKEND_IMAGE}:latest) || exit 0
+                           (docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG}) || exit 0
+                           (docker rmi ${env.FRONTEND_IMAGE}:latest) || exit 0
                        """
                    } catch (Exception e) {
                        echo "Warning: Error during cleanup: ${e.getMessage()}"

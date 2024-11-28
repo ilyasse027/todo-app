@@ -1,32 +1,39 @@
-# Étape 1 : Installation des dépendances et préparation de l'application
+# Stage 1: Build and dependency installation
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Copier les fichiers package.json et installer les dépendances de production
+# Copy package files first
 COPY package*.json ./
-RUN npm ci --only=production
 
-# Copier le reste des fichiers nécessaires à l’application
+# Windows-compatible commands for updating cross-spawn
+RUN npm install -g npm@latest && \
+    npm install -g cross-spawn@7.0.5 && \
+    npm install cross-spawn@7.0.5 --save-exact && \
+    npm ci --only=production
+
+# Copy application code
 COPY . .
 
-# Étape 2 : Image de production légère
+# Stage 2: Production image
 FROM node:18-alpine
 WORKDIR /app
 
-# Création d'un utilisateur non-root pour la sécurité
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Windows-compatible user creation
+RUN addgroup -S appgroup && \
+    adduser -S appuser -G appgroup
 
-# Copier les fichiers de l'étape builder dans cette image de production
+# Update npm and cross-spawn in production image
+RUN npm install -g npm@latest && \
+    npm install -g cross-spawn@7.0.5
+
+# Copy from builder stage
 COPY --from=builder /app /app
 
-# Passer en tant qu'utilisateur non-root
+# Set permissions (Windows-compatible)
+RUN chown -R appuser:appgroup /app
+
 USER appuser
-
-# Définir les variables d'environnement pour la production
 ENV NODE_ENV=production
-
-# Exposer le port pour l'application
 EXPOSE 5000
 
-# Lancer l'application
 CMD ["node", "src/index.js"]

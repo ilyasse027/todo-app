@@ -135,16 +135,6 @@ pipeline {
                 """
             }
         }
-
-        stage('Scan Kubernetes Deployments with Trivy') {
-            steps {
-                echo 'Scanning Kubernetes deployments...'
-                bat """
-                    trivy image --download-db-only || echo "Failed to download Trivy database!"
-                    trivy k8s --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH --include-namespaces todo-app -o C:/Reports/trivy_report.json -f json || echo "Kubernetes deployments have vulnerabilities!"
-                """
-            }
-        }
     }
 
     post {

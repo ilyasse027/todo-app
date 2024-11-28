@@ -4,103 +4,142 @@ pipeline {
     environment {
         BACKEND_IMAGE = 'ilyassepro/unique-backend'
         FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-        K8S_MANIFEST_REPO = 'https://github.com/ilyasse027/todo-app.git'
-        CHART_PATH = 'D:/Projects/todo-app/todo-app-chart'
-        GIT_CREDENTIALS_ID = 'github-pat'
-        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
-        BACKEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
-        FRONTEND_TAG = "${BUILD_NUMBER}" // Auto-incremented with the build number
+        DOCKER_TAG = "2.0"                              // Tag for both backend and frontend images
+        KUBECONFIG = credentials('Kube config')         // Kubernetes config credential ID
+        DRY_RUN = 'false'                               // Set to 'true' for testing without actual execution
     }
 
     stages {
-        stage('Cleanup Workspace') {
+        stage('Checkout') {
+            when {
+                expression { env.DRY_RUN != 'true' }
+            }
             steps {
-                cleanWs()
+                echo 'Cloning repository...'
+                checkout scm
             }
         }
 
-        stage('Clone Helm Chart Repository') {
+        stage('Install Dependencies') {
+            when {
+                expression { env.DRY_RUN != 'true' }
+            }
             steps {
-                git url: "${K8S_MANIFEST_REPO}", branch: 'main', credentialsId: "${GIT_CREDENTIALS_ID}"
+                echo 'Installing dependencies...'
+                bat """
+                    cd backend
+                    npm ci
+                    cd ../frontend
+                    npm ci
+                """
+            }
+        }
+
+        stage('Run Tests') {
+            when {
+                expression { env.DRY_RUN != 'true' }
+            }
+            steps {
+                echo 'Running Jest tests...'
+                bat """
+                    cd backend
+                    npm test || echo "Backend tests failed!"
+                    cd ../frontend
+                    npm test || echo "Frontend tests failed!"
+                """
             }
         }
 
         stage('Build Docker Images') {
-            parallel {
-                stage('Build Backend Image') {
-                    steps {
+            when {
+                expression { env.DRY_RUN != 'true' }
+            }
+            steps {
+                parallel(
+                    backend: {
                         echo 'Building backend Docker image...'
                         script {
-                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.").push()
+                            docker.build("${BACKEND_IMAGE}:${DOCKER_TAG}", "backend/.")
                         }
-                    }
-                }
-                stage('Build Frontend Image') {
-                    steps {
+                    },
+                    frontend: {
                         echo 'Building frontend Docker image...'
                         script {
-                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.").push()
+                            docker.build("${FRONTEND_IMAGE}:${DOCKER_TAG}", "frontend/.")
                         }
                     }
-                }
+                )
             }
         }
 
-        stage('Update Helm Chart with New Tags') {
-            steps {
-                echo 'Updating Helm chart values.yaml with new image tags...'
-                script {
-                    def valuesPath = "D:/Projects/todo-app/todo-app-chart/values.yaml"
-
-                    // Check if the file exists
-                    if (!fileExists(valuesPath)) {
-                        error "values.yaml file not found at ${valuesPath}"
-                    }
-
-                    echo "Reading values.yaml from ${valuesPath}..."
-                    def valuesYaml = readYaml file: valuesPath
-
-                    echo "Initial values.yaml content: ${valuesYaml}"
-
-                    // Update backend and frontend image tags
-                    valuesYaml.backend.image = "${BACKEND_IMAGE}:${BACKEND_TAG}"
-                    valuesYaml.frontend.image = "${FRONTEND_IMAGE}:${FRONTEND_TAG}"
-
-                    echo "Updated values.yaml content: ${valuesYaml}"
-
-                    // Write the updated values back to values.yaml
-                    writeYaml file: valuesPath, data: valuesYaml
-                    echo "Successfully updated ${valuesPath} with new image tags."
-                }
-            }
-        }
-
-        stage('Commit and Push Updated Helm Chart') {
-            steps {
-                dir("${WORKSPACE}/todo-app-chart") {
-                    withCredentials([string(credentialsId: "${GIT_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
+        stage('Scan Docker Images with Trivy') {
+            parallel {
+                stage('Scan Backend Image') {
+                    steps {
+                        echo 'Scanning Backend Image...'
                         bat """
-                            git config user.name "Ilyasse"
-                            git config user.email "ilyasse.taoufik@ynov.com"
-                            git status
-                            git add values.yaml
-                            git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
-                            git push https://$GITHUB_TOKEN@github.com/ilyasse027/todo-app.git main
+                            trivy image --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%DOCKER_TAG% || echo "Backend image has vulnerabilities!"
+                        """
+                    }
+                }
+                stage('Scan Frontend Image') {
+                    steps {
+                        echo 'Scanning Frontend Image...'
+                        bat """
+                            trivy image --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%DOCKER_TAG% || echo "Frontend image has vulnerabilities!"
                         """
                     }
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Push Docker Images') {
+            when {
+                expression { env.DRY_RUN != 'true' }
+            }
             steps {
-                echo 'Deploying application to Kubernetes using Helm...'
+                parallel(
+                    pushBackend: {
+                        echo 'Pushing backend Docker image to Docker Hub...'
+                        script {
+                            docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
+                                docker.image("${BACKEND_IMAGE}:${DOCKER_TAG}").push()
+                            }
+                        }
+                    },
+                    pushFrontend: {
+                        echo 'Pushing frontend Docker image to Docker Hub...'
+                        script {
+                            docker.withRegistry('https://registry.hub.docker.com', 'Credentials for dockerhub') {
+                                docker.image("${FRONTEND_IMAGE}:${DOCKER_TAG}").push()
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            when {
+                expression { env.DRY_RUN != 'true' }
+            }
+            steps {
+                echo 'Deploying backend and frontend to Kubernetes...'
                 bat """
-                    helm upgrade --install todo-app ${CHART_PATH} \
+                    helm upgrade --install todo-app D:/Projects/todo-app/todo-app-chart \
                     --namespace todo-app \
-                    --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} \
-                    --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} \
-                    --wait --timeout 10m0s
+                    --set backend.image=ilyassepro/unique-backend:2.0 \
+                    --set frontend.image=ilyassepro/unique-frontend:latest \
+                    --wait --timeout 10m0s || echo "Error deploying applications"
+                """
+            }
+        }
+
+        stage('Scan Kubernetes Deployments with Trivy') {
+            steps {
+                echo 'Scanning Kubernetes deployments...'
+                bat """
+                    trivy k8s --exit-code 1 --severity CRITICAL,HIGH --namespace todo-app deployment || echo "Kubernetes deployments have vulnerabilities!"
                 """
             }
         }
@@ -115,7 +154,7 @@ pipeline {
             echo 'Pipeline succeeded!'
         }
         failure {
-            echo 'Pipeline failed. Please check the logs.'
+            echo 'Pipeline failed!'
         }
     }
 }

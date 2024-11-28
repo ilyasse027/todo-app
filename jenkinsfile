@@ -205,29 +205,28 @@ pipeline {
     }
 
     post {
-        always {
-            node('built-in') {  // Ensure we have a workspace
-                script {
-                    try {
-                        bat """
-                            docker logout
-                            docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG} || true
-                            docker rmi ${env.BACKEND_IMAGE}:latest || true
-                            docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG} || true
-                            docker rmi ${env.FRONTEND_IMAGE}:latest || true
-                        """
-                    } catch (Exception e) {
-                        echo "Warning: Error during cleanup: ${e.getMessage()}"
-                    }
-                    cleanWs()
-                }
-            }
-        }
-        success {
-            echo "Pipeline completed successfully! Deployed version: Backend ${env.BACKEND_TAG}, Frontend ${env.FRONTEND_TAG}"
-        }
-        failure {
-            echo 'Pipeline failed! Check the logs for details.'
-        }
-    }
+       always {
+           script {
+               try {
+                   bat """
+                       docker logout
+                       docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG} || true
+                       docker rmi ${env.BACKEND_IMAGE}:latest || true
+                       docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG} || true
+                       docker rmi ${env.FRONTEND_IMAGE}:latest || true
+                   """
+               } catch (Exception e) {
+                   echo "Warning: Error during cleanup: ${e.getMessage()}"
+               } finally {
+                   cleanWs()
+               }
+           }
+       }
+       success {
+           echo "Pipeline completed successfully! Deployed version: Backend ${env.BACKEND_TAG}, Frontend ${env.FRONTEND_TAG}"
+       }
+       failure {
+           echo 'Pipeline failed! Check the logs for details.'
+       }
+   }
 }

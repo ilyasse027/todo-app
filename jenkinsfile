@@ -165,32 +165,34 @@ pipeline {
 
        stage('Update Helm Values and Push') {
            steps {
-               dir("${K8S_REPO_PATH}") {
-                   script {
-                       def valuesPath = "values.yaml"
-                       def valuesContent = readFile(valuesPath)
-                       valuesContent = valuesContent.replaceAll(
-                           "backend:\\n  image: \"${BACKEND_IMAGE}:.*\"", 
-                           "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
-                       )
-                       valuesContent = valuesContent.replaceAll(
-                           "frontend:\\n  image: \"${FRONTEND_IMAGE}:.*\"", 
-                           "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
-                       )
-                       writeFile file: valuesPath, text: valuesContent
+                dir("${K8S_REPO_PATH}/todo-app-chart") {  // Ajout du sous-dossier todo-app-chart
+                    script {
+                        // Update values.yaml
+                        def valuesPath = "values.yaml"
+                        def valuesContent = readFile(valuesPath)
+                        valuesContent = valuesContent.replaceAll(
+                            "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
+                            "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
+                        )
+                        valuesContent = valuesContent.replaceAll(
+                            "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
+                            "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
+                        )
+                        writeFile file: valuesPath, text: valuesContent
 
-                       withCredentials([string(credentialsId: "${GIT_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
-                           bat """
-                               git config user.name "Jenkins"
-                               git config user.email "jenkins@example.com"
-                               git add values.yaml
-                               git commit -m "Update images to version Backend: ${BACKEND_TAG}, Frontend: ${FRONTEND_TAG}"
-                               git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
-                           """
-                       }
-                   }
-               }
-           }
+                        // Configure Git and Push
+                        withCredentials([string(credentialsId: "${GIT_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
+                            bat """
+                                git config --global user.name "Jenkins"
+                                git config --global user.email "jenkins@example.com"
+                                git add values.yaml
+                                git commit -m "Update images to version Backend: ${BACKEND_TAG}, Frontend: ${FRONTEND_TAG}"
+                                git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
+                            """
+                        }
+                    }
+                }
+            }
        }
 
        stage('Deploy to Kubernetes') {

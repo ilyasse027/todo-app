@@ -86,14 +86,18 @@ pipeline {
 
        stage('Clone Helm Chart Repository') {
            steps {
-               dir("${K8S_REPO_PATH}") {
-                   git branch: 'main', 
+                bat "mkdir ${K8S_REPO_PATH} 2>NUL || echo Directory exists"
+                dir("${K8S_REPO_PATH}") {
+                    bat "echo Current directory: && cd"
+                    git branch: 'main', 
                        credentialsId: 'github-token',
                        url: "${GITHUB_REPO}"
                     
                      bat """
                         git checkout main
                         git pull origin main
+                        echo "Directory contents after clone:"
+                        dir
                     """
                }
            }

@@ -131,6 +131,15 @@ pipeline {
 
         stage('Scan Docker Images') {
             steps {
+                script {
+                    // Add retry logic for downloading Trivy DB
+                    retry(3) {
+                        bat """
+                            trivy image --cache-dir .trivycache/ --download-db-only || exit 0
+                            timeout /t 5 /nobreak
+                        """
+                    }
+                }
                 parallel(
                     backend: {
                         echo 'Scanning Backend Image...'

@@ -90,6 +90,11 @@ pipeline {
                    git branch: 'main', 
                        credentialsId: 'github-token',
                        url: "${GITHUB_REPO}"
+                    
+                     bat """
+                        git checkout main
+                        git pull origin main
+                    """
                }
            }
        }
@@ -165,7 +170,7 @@ pipeline {
 
        stage('Update Helm Values and Push') {
             steps {
-                dir("${WORKSPACE}/todo-app-chart") {
+                dir("${K8S_REPO_PATH}") {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                         script {
                             // Update values.yaml
@@ -179,15 +184,18 @@ pipeline {
                                 "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
                                 "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
                             )
-                            writeFile file: valuesPath, text: valuesContent
+                            writeFile file: 'values.yaml', text: valuesContent
                     
                             // Git operations using the token
                             bat """
                                 git config user.name "Ilyasse"
                                 git config user.email "ilyasse.taoufik@ynov.com"
-                                git status
+                        
+                                git checkout main || git checkout -b main
+                        
                                 git add values.yaml
-                                git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
+                                git diff --cached --quiet || git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}"
+                        
                                 git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
                             """
                         }
@@ -203,7 +211,7 @@ pipeline {
            steps {
                echo 'Deploying to Kubernetes...'
                bat """
-                   helm upgrade --install todo-app ${K8S_REPO_PATH}/todo-app-chart --namespace todo-app --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} --wait --timeout 10m0s || echo "Error deploying applications"
+                   helm upgrade --install todo-app ${K8S_REPO_PATH} --namespace todo-app --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} --wait --timeout 10m0s || echo "Error deploying applications"
                """
            }
        }

@@ -15,7 +15,7 @@ pipeline {
         FRONTEND_TAG = "${FRONTEND_VERSION_BASE}.${BUILD_NUMBER}"
         
         // Credentials
-        GITHUB_CREDS = credentials('Credentials for GIT')
+        GITHUB_CREDS = credentials('github-token')
         KUBECONFIG = credentials('Kube config')
         DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
         TRIVY_CREDENTIALS_ID = "PAT for trivy"
@@ -40,7 +40,7 @@ pipeline {
             steps {
                 echo 'Cloning repository...'
                 git branch: 'main',
-                    credentialsId: 'Credentials for GIT',
+                    credentialsId: 'github-token',
                     url: "${GITHUB_REPO}"
             }
         }
@@ -168,7 +168,7 @@ pipeline {
         stage('Update Helm Values and Push') {
             steps {
                 dir("${WORKSPACE}/todo-app-chart") {
-                    withCredentials([string(credentialsId: 'Credentials for GIT', variable: 'GITHUB_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                         script {
                             def valuesPath = "values.yaml"
                             def valuesContent = readFile(valuesPath)

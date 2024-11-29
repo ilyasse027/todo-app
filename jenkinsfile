@@ -86,22 +86,39 @@ pipeline {
 
        stage('Clone Helm Chart Repository') {
            steps {
-                bat "mkdir ${K8S_REPO_PATH} 2>NUL || echo Directory exists"
-                dir("${K8S_REPO_PATH}") {
-                    bat "echo Current directory: && cd"
-                    git branch: 'main', 
-                       credentialsId: 'github-token',
-                       url: "${GITHUB_REPO}"
-                    
-                     bat """
-                        git checkout main
-                        git pull origin main
-                        echo "Directory contents after clone:"
+                script {
+                    // Create parent directory first
+                    bat """
+                        mkdir "${WORKSPACE}\\todo-app" 2>NUL || echo "Parent directory exists"
+                        mkdir "${K8S_REPO_PATH}" 2>NUL || echo "Chart directory exists"
+                        echo "Created directories"
                         dir
                     """
-               }
-           }
-       }
+            
+                    dir("${K8S_REPO_PATH}") {
+                        // Clean any existing content
+                        bat "if exist * del /F /Q *"
+                
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: '*/main']],
+                            userRemoteConfigs: [[
+                                url: "${GITHUB_REPO}",
+                                credentialsId: 'github-token'
+                            ]]
+                        ])
+                
+                        bat """
+                            echo "Directory contents after clone:"
+                            dir
+                            git checkout main
+                            git pull origin main
+                        """
+                    }       
+                }
+            }
+        }
+
 
        stage('Docker Login') {
            steps {
@@ -227,10 +244,10 @@ pipeline {
        always {
            bat """
                docker logout
-               docker rmi ${BACKEND_IMAGE}:${BACKEND_TAG} || true
-               docker rmi ${BACKEND_IMAGE}:latest || true
-               docker rmi ${FRONTEND_IMAGE}:${FRONTEND_TAG} || true
-               docker rmi ${FRONTEND_IMAGE}:latest || true
+               docker rmi ${BACKEND_IMAGE}:${BACKEND_TAG} 2>NUL || echo "Removing backend tag"
+                docker rmi ${BACKEND_IMAGE}:latest 2>NUL || echo "Removing backend latest"
+                docker rmi ${FRONTEND_IMAGE}:${FRONTEND_TAG} 2>NUL || echo "Removing frontend tag"
+                docker rmi ${FRONTEND_IMAGE}:latest 2>NUL || echo "Removing frontend latest"
            """
            cleanWs()
        }

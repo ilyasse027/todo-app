@@ -180,16 +180,17 @@ pipeline {
                                 "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
                             )
                             writeFile file: valuesPath, text: valuesContent
+                    
+                            // Git operations using the token
+                            bat """
+                                git config user.name "Ilyasse"
+                                git config user.email "ilyasse.taoufik@ynov.com"
+                                git status
+                                git add values.yaml
+                                git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
+                                git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
+                            """
                         }
-                
-                        bat """
-                            git config user.name "Ilyasse"
-                            git config user.email "ilyasse.taoufik@ynov.com"
-                            git status
-                            git add values.yaml
-                            git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
-                            git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
-                        """
                     }
                 }
             }

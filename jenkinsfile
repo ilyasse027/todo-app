@@ -1,261 +1,229 @@
 pipeline {
-    agent any
+   agent any
 
-    environment {
-        // Images et repos
-        BACKEND_IMAGE = 'ilyassepro/unique-backend'
-        FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-        GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"
-        
-        // Versions
-        BACKEND_VERSION_BASE = '3.3'
-        FRONTEND_VERSION_BASE = '2.2'
-        BUILD_NUMBER = "${env.BUILD_NUMBER}"
-        BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"
-        FRONTEND_TAG = "${FRONTEND_VERSION_BASE}.${BUILD_NUMBER}"
-        
-        // Credentials
-        GITHUB_CREDS = credentials('github-token')
-        KUBECONFIG = credentials('Kube config')
-        DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
-        TRIVY_CREDENTIALS_ID = "PAT for trivy"
-        
-        // Autres configurations
-        DRY_RUN = 'false'
-        K8S_REPO_PATH = "${WORKSPACE}/todo-app-chart"
-    }
+   environment {
+       // Images et repos
+       BACKEND_IMAGE = 'ilyassepro/unique-backend'
+       FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
+       GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"
+       
+       // Versions
+       BACKEND_VERSION_BASE = '3.3'
+       FRONTEND_VERSION_BASE = '2.2'
+       BUILD_NUMBER = "${env.BUILD_NUMBER}"
+       BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"
+       FRONTEND_TAG = "${FRONTEND_VERSION_BASE}.${BUILD_NUMBER}"
+       
+       // Credentials
+       KUBECONFIG = credentials('Kube config')
+       DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
+       TRIVY_CREDENTIALS_ID = "PAT for trivy"
+       GITHUB_TOKEN = credentials('github-token')
+       
+       // Autres configurations
+       DRY_RUN = 'false'
+       K8S_REPO_PATH = "${WORKSPACE}/todo-app-chart"
+   }
 
-    options {
-        skipDefaultCheckout(true)
-    }
+   stages {
+       stage('Cleanup Workspace') {
+           steps {
+               cleanWs()
+           }
+       }
 
-    stages {
-        stage('Cleanup Workspace') {
-            steps {
-                cleanWs()
-            }
-        }
+       stage('Checkout') {
+           when {
+               expression { env.DRY_RUN != 'true' }
+           }
+           steps {
+               echo 'Cloning repository...'
+               checkout scm
+           }
+       }
 
-        stage('Checkout') {
-            steps {
-                echo 'Cloning repository...'
-                git branch: 'main',
-                    credentialsId: 'github-token',
-                    url: "${GITHUB_REPO}"
-            }
-        }
+       stage('Verify Environment') {
+           steps {
+               bat '''
+                   echo "Checking environment..."
+                   node --version
+                   npm --version
+                   docker --version
+                   helm version
+               '''
+           }
+       }
 
-        stage('Verify Environment') {
-            steps {
-                bat '''
-                    echo "Checking environment..."
-                    node --version
-                    npm --version
-                    docker --version
-                    helm version
-                '''
-            }
-        }
+       stage('Install Dependencies') {
+           when {
+               expression { env.DRY_RUN != 'true' }
+           }
+           steps {
+               echo 'Installing dependencies...'
+               bat """
+                   cd backend
+                   npm ci
+                   cd ../frontend
+                   npm ci
+               """
+           }
+       }
 
-        stage('Install Dependencies') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                echo 'Installing dependencies...'
-                bat """
-                    cd backend
-                    npm ci
-                    cd ../frontend
-                    npm ci
-                """
-            }
-        }
+       stage('Run Tests') {
+           when {
+               expression { env.DRY_RUN != 'true' }
+           }
+           steps {
+               echo 'Running Jest tests...'
+               bat """
+                   cd backend
+                   npm test || echo "Backend tests failed!"
+                   cd ../frontend
+                   npm test || echo "Frontend tests failed!"
+               """
+           }
+       }
 
-        stage('Run Tests') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                echo 'Running Jest tests...'
-                bat """
-                    cd backend
-                    npm test || echo "Backend tests failed!"
-                    cd ../frontend
-                    npm test || echo "Frontend tests failed!"
-                """
-            }
-        }
+       stage('Clone Helm Chart Repository') {
+           steps {
+               dir("${K8S_REPO_PATH}") {
+                   git branch: 'main', 
+                       credentialsId: 'github-token',
+                       url: "${GITHUB_REPO}"
+               }
+           }
+       }
 
-        stage('Clone Helm Chart Repository') {
-            steps {
-                dir("${K8S_REPO_PATH}") {
-                    git branch: 'main',
-                        credentialsId: 'Credentials for GIT',
-                        url: "${GITHUB_REPO}"
-                }
-            }
-        }
+       stage('Docker Login') {
+           steps {
+               withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", 
+                   usernameVariable: 'DOCKER_USER', 
+                   passwordVariable: 'DOCKER_PASS')]) {
+                   bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
+               }
+           }
+       }
 
-        stage('Docker Login') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}",
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS')]) {
-                    bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
-                }
-            }
-        }
+       stage('Build Docker Images') {
+           when {
+               expression { env.DRY_RUN != 'true' }
+           }
+           steps {
+               parallel(
+                   backend: {
+                       echo "Building backend Docker image with tag ${BACKEND_TAG}..."
+                       script {
+                           docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
+                       }
+                   },
+                   frontend: {
+                       echo "Building frontend Docker image with tag ${FRONTEND_TAG}..."
+                       script {
+                           docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
+                       }
+                   }
+               )
+           }
+       }
 
-        stage('Build Docker Images') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            parallel {
-                stage('Build Backend') {
-                    steps {
-                        echo "Building backend Docker image with tag ${BACKEND_TAG}..."
-                        script {
-                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
-                        }
-                    }
-                }
-                stage('Build Frontend') {
-                    steps {
-                        echo "Building frontend Docker image with tag ${FRONTEND_TAG}..."
-                        script {
-                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
-                        }
-                    }
-                }
-            }
-        }
+       stage('Scan Docker Images') {
+           steps {
+               parallel(
+                   backend: {
+                       echo 'Scanning Backend Image...'
+                       bat """
+                           trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                       """
+                   },
+                   frontend: {
+                       echo 'Scanning Frontend Image...'
+                       bat """
+                           trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                       """
+                   }
+               )
+           }
+       }
 
-        stage('Scan Docker Images') {
-            stages {
-                stage('Download Trivy DB') {
-                    steps {
-                        script {
-                            retry(3) {
-                                bat """
-                                    trivy image --cache-dir .trivycache/ --download-db-only || exit 0
-                                    timeout /t 5 /nobreak
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Run Scans') {
-                    parallel {
-                        stage('Scan Backend') {
-                            steps {
-                                echo 'Scanning Backend Image...'
-                                bat """
-                                    trivy image --cache-dir .trivycache/ --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                                """
-                            }
-                        }
-                        stage('Scan Frontend') {
-                            steps {
-                                echo 'Scanning Frontend Image...'
-                                bat """
-                                    trivy image --cache-dir .trivycache/ --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
-                                """
-                            }
-                        }
-                    }
-                }
-            }
-        }
+       stage('Push Docker Images') {
+           steps {
+               script {
+                   bat """
+                       docker tag ${BACKEND_IMAGE}:${BACKEND_TAG} ${BACKEND_IMAGE}:latest
+                       docker push ${BACKEND_IMAGE}:${BACKEND_TAG}
+                       docker push ${BACKEND_IMAGE}:latest
+                   """
 
-        stage('Push Docker Images') {
-            steps {
-                script {
-                    bat """
-                        docker tag ${BACKEND_IMAGE}:${BACKEND_TAG} ${BACKEND_IMAGE}:latest
-                        docker push ${BACKEND_IMAGE}:${BACKEND_TAG}
-                        docker push ${BACKEND_IMAGE}:latest
-                    """
-                    bat """
-                        docker tag ${FRONTEND_IMAGE}:${FRONTEND_TAG} ${FRONTEND_IMAGE}:latest
-                        docker push ${FRONTEND_IMAGE}:${FRONTEND_TAG}
-                        docker push ${FRONTEND_IMAGE}:latest
-                    """
-                }
-            }
-        }
+                   bat """
+                       docker tag ${FRONTEND_IMAGE}:${FRONTEND_TAG} ${FRONTEND_IMAGE}:latest
+                       docker push ${FRONTEND_IMAGE}:${FRONTEND_TAG}
+                       docker push ${FRONTEND_IMAGE}:latest
+                   """
+               }
+           }
+       }
 
-        stage('Update Helm Values and Push') {
+       stage('Update Helm Values and Push') {
             steps {
                 dir("${WORKSPACE}/todo-app-chart") {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                         script {
+                            // Update values.yaml
                             def valuesPath = "values.yaml"
                             def valuesContent = readFile(valuesPath)
                             valuesContent = valuesContent.replaceAll(
-                                "backend:\\n\\s+image: \".*\"",
+                                "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
                                 "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
                             )
                             valuesContent = valuesContent.replaceAll(
-                                "frontend:\\n\\s+image: \".*\"",
+                                "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
                                 "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
                             )
                             writeFile file: valuesPath, text: valuesContent
-
-                            bat """
-                                git config user.name "Ilyasse"
-                                git config user.email "ilyasse.taoufik@ynov.com"
-                                git add values.yaml
-                                git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
-                                git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
-                            """
                         }
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            when {
-                expression { env.DRY_RUN != 'true' }
-            }
-            steps {
-                echo 'Deploying to Kubernetes...'
-                bat """
-                    helm upgrade --install todo-app ${K8S_REPO_PATH}/todo-app-chart --namespace todo-app \
-                    --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} \
-                    --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} \
-                    --wait --timeout 10m0s
-                """
-            }
-        }
-    }
-
-    post {
-        always {
-            node(null) {
-                script {
-                    try {
+                
                         bat """
-                            docker logout
-                            (docker rmi ${env.BACKEND_IMAGE}:${env.BACKEND_TAG}) || exit 0
-                            (docker rmi ${env.BACKEND_IMAGE}:latest) || exit 0
-                            (docker rmi ${env.FRONTEND_IMAGE}:${env.FRONTEND_TAG}) || exit 0
-                            (docker rmi ${env.FRONTEND_IMAGE}:latest) || exit 0
+                            git config user.name "Ilyasse"
+                            git config user.email "ilyasse.taoufik@ynov.com"
+                            git status
+                            git add values.yaml
+                            git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}" || echo "Nothing to commit"
+                            git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
                         """
-                    } catch (Exception e) {
-                        echo "Warning: Error during cleanup: ${e.getMessage()}"
-                    } finally {
-                        cleanWs()
                     }
                 }
             }
         }
-        success {
-            echo "Pipeline completed successfully! Deployed version: Backend ${env.BACKEND_TAG}, Frontend ${env.FRONTEND_TAG}"
-        }
-        failure {
-            echo 'Pipeline failed! Check the logs for details.'
-        }
-    }
+
+       stage('Deploy to Kubernetes') {
+           when {
+               expression { env.DRY_RUN != 'true' }
+           }
+           steps {
+               echo 'Deploying to Kubernetes...'
+               bat """
+                   helm upgrade --install todo-app ${K8S_REPO_PATH}/todo-app-chart --namespace todo-app --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} --wait --timeout 10m0s || echo "Error deploying applications"
+               """
+           }
+       }
+   }
+
+   post {
+       always {
+           bat """
+               docker logout
+               docker rmi ${BACKEND_IMAGE}:${BACKEND_TAG} || true
+               docker rmi ${BACKEND_IMAGE}:latest || true
+               docker rmi ${FRONTEND_IMAGE}:${FRONTEND_TAG} || true
+               docker rmi ${FRONTEND_IMAGE}:latest || true
+           """
+           cleanWs()
+       }
+       success {
+           echo "Pipeline completed successfully! Deployed version: Backend ${BACKEND_TAG}, Frontend ${FRONTEND_TAG}"
+       }
+       failure {
+           echo 'Pipeline failed! Check the logs for details.'
+       }
+   }
 }

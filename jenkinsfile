@@ -173,9 +173,11 @@ pipeline {
                 dir("${K8S_REPO_PATH}") {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                         script {
-                            // Update values.yaml
-                            def valuesPath = "values.yaml"
-                            def valuesContent = readFile(valuesPath)
+                            // Debug current location
+                            bat "echo Current directory: && cd && dir"
+                    
+                            // Read and update values.yaml
+                            def valuesContent = readFile 'values.yaml'
                             valuesContent = valuesContent.replaceAll(
                                 "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
                                 "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""

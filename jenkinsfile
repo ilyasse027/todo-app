@@ -22,7 +22,7 @@ pipeline {
        
        // Autres configurations
        DRY_RUN = 'false'
-       K8S_REPO_PATH = "${WORKSPACE}/todo-app-chart"
+       K8S_REPO_PATH = "${WORKSPACE}/todo-app/todo-app-chart"
    }
 
    stages {

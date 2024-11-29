@@ -111,49 +111,60 @@ pipeline {
             when {
                 expression { env.DRY_RUN != 'true' }
             }
-            steps {
-                parallel(
-                    backend: {
+            parallel {
+                stage('Build Backend') {
+                    steps {
                         echo "Building backend Docker image with tag ${BACKEND_TAG}..."
                         script {
                             docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
                         }
-                    },
-                    frontend: {
+                    }
+                }
+                stage('Build Frontend') {
+                    steps {
                         echo "Building frontend Docker image with tag ${FRONTEND_TAG}..."
                         script {
                             docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
                         }
                     }
-                )
+                }
             }
         }
 
         stage('Scan Docker Images') {
-            steps {
-                script {
-                    // Add retry logic for downloading Trivy DB
-                    retry(3) {
-                        bat """
-                            trivy image --cache-dir .trivycache/ --download-db-only || exit 0
-                            timeout /t 5 /nobreak
-                        """
+            stages {
+                stage('Download Trivy DB') {
+                    steps {
+                        script {
+                            retry(3) {
+                                bat """
+                                    trivy image --cache-dir .trivycache/ --download-db-only || exit 0
+                                    timeout /t 5 /nobreak
+                                """
+                            }
+                        }
                     }
                 }
-                parallel(
-                    backend: {
-                        echo 'Scanning Backend Image...'
-                        bat """
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                        """
-                    },
-                    frontend: {
-                        echo 'Scanning Frontend Image...'
-                        bat """
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
-                        """
+                stage('Run Scans') {
+                    parallel {
+                        stage('Scan Backend') {
+                            steps {
+                                echo 'Scanning Backend Image...'
+                                bat """
+                                    trivy image --cache-dir .trivycache/ --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                                """
+                            }
+                        }
+                        stage('Scan Frontend') {
+                            steps {
+                                echo 'Scanning Frontend Image...'
+                                bat """
+                                    trivy image --cache-dir .trivycache/ --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                                """
+                            }
+                        }
                     }
-                )
+                }
             }
         }
 

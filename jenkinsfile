@@ -85,36 +85,57 @@ pipeline {
        }
 
        stage('Clone Helm Chart Repository') {
-           steps {
+            steps {
                 script {
-                    // Create parent directory first
-                    bat """
-                        mkdir "${WORKSPACE}\\todo-app" 2>NUL || echo "Parent directory exists"
-                        mkdir "${K8S_REPO_PATH}" 2>NUL || echo "Chart directory exists"
-                        echo "Created directories"
-                        dir
-                    """
-            
-                    dir("${K8S_REPO_PATH}") {
-                        // Clean any existing content
-                        bat "if exist * del /F /Q *"
-                
-                        checkout([
-                            $class: 'GitSCM',
-                            branches: [[name: '*/main']],
-                            userRemoteConfigs: [[
-                                url: "${GITHUB_REPO}",
-                                credentialsId: 'github-token'
-                            ]]
-                        ])
-                
+                    try {
+                        // Create parent directory first
                         bat """
-                            echo "Directory contents after clone:"
+                            mkdir "${WORKSPACE}\\todo-app" 2>NUL || echo "Parent directory exists"
+                            mkdir "${K8S_REPO_PATH}" 2>NUL || echo "Chart directory exists"
+                            echo "Created directories"
                             dir
-                            git checkout main
-                            git pull origin main
                         """
-                    }       
+            
+                        dir("${K8S_REPO_PATH}") {
+                            // Clean any existing content
+                            bat "if exist * del /F /Q *"
+                
+                            // Clone only the todo-app-chart directory
+                            checkout([
+                                $class: 'GitSCM',
+                                branches: [[name: '*/main']],
+                                extensions: [
+                                    [$class: 'SparseCheckoutPaths',
+                                    sparseCheckoutPaths: [[path: 'todo-app-chart/']]],
+                                    [$class: 'RelativeTargetDirectory', 
+                                    relativeTargetDir: '.']
+                                ],
+                                userRemoteConfigs: [[
+                                    url: "${GITHUB_REPO}",
+                                    credentialsId: 'github-token'
+                                ]]
+                            ])
+                
+                            // Verify clone was successful and files exist
+                            bat """
+                                echo "Directory contents after clone:"
+                                dir /s
+                        
+                                rem Check if values.yaml exists after moving files
+                                if exist todo-app-chart\\values.yaml (
+                                    move todo-app-chart\\* .
+                                    rd /s /q todo-app-chart
+                                ) else (
+                                    echo "values.yaml not found in cloned repository"
+                                    exit 1
+                                )
+                            """
+                        }
+                    } catch (Exception e) {
+                        echo "Failed to clone Helm chart repository: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error "Clone stage failed"
+                    }
                 }
             }
         }
@@ -191,37 +212,46 @@ pipeline {
 
        stage('Update Helm Values and Push') {
             steps {
-                dir("${K8S_REPO_PATH}") {
-                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                        script {
-                            // Debug current location
-                            bat "echo Current directory: && cd && dir"
-                    
-                            // Read and update values.yaml
-                            def valuesContent = readFile 'values.yaml'
-                            valuesContent = valuesContent.replaceAll(
-                                "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
-                                "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
-                            )
-                            valuesContent = valuesContent.replaceAll(
-                                "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
-                                "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
-                            )
-                            writeFile file: 'values.yaml', text: valuesContent
-                    
-                            // Git operations using the token
-                            bat """
-                                git config user.name "Ilyasse"
-                                git config user.email "ilyasse.taoufik@ynov.com"
+                script {
+                    try {
+                        dir("${K8S_REPO_PATH}") {
+                            withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                                // Verify values.yaml exists
+                                bat """
+                                 echo "Checking values.yaml exists..."
+                                    if not exist values.yaml (
+                                        echo "values.yaml not found"
+                                        exit 1
+                                    )
+                                """
                         
-                                git checkout main || git checkout -b main
+                                // Read and update values.yaml
+                                def valuesContent = readFile 'values.yaml'
+                                    valuesContent = valuesContent.replaceAll(
+                                    "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
+                                    "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
+                                )
+                                valuesContent = valuesContent.replaceAll(
+                                    "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
+                                    "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
+                                )
+                                writeFile file: 'values.yaml', text: valuesContent
                         
-                                git add values.yaml
-                                git diff --cached --quiet || git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}"
-                        
-                                git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
-                            """
+                                // Git operations
+                                bat """
+                                    git config user.name "Ilyasse"
+                                    git config user.email "ilyasse.taoufik@ynov.com"
+                                    git checkout main || git checkout -b main
+                                    git add values.yaml
+                                    git diff --cached --quiet || git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}"
+                                    git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
+                                """
+                            }
                         }
+                    }   catch (Exception e) {
+                        echo "Failed to update Helm values: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error "Update Helm values stage failed"
                     }
                 }
             }

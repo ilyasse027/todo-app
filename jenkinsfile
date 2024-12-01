@@ -210,24 +210,52 @@ pipeline {
            }
        }
 
+       stage('Setup ArgoCD') {
+            steps {
+                script {
+                    try {
+                        bat """
+                            kubectl get namespace argocd || kubectl create namespace argocd
+                            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+                            kubectl wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
+
+                             rem Deploy initial ArgoCD application
+                            helm upgrade --install argocd-config ${K8S_REPO_PATH} --namespace argocd --set argocd.enabled=true
+                        """
+
+                        bat """
+                            echo "ArgoCD initial admin password:"
+                            kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+                        """
+                    } catch (Exception e) {
+                        echo "ArgoCD setup error: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error "ArgoCD setup failed"
+                    }
+                }
+            }
+        }
+
        stage('Update Helm Values and Push') {
             steps {
                 script {
                     try {
                         dir("${K8S_REPO_PATH}") {
                             withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                                // Verify values.yaml exists
+                                // Debug current location
+                                bat "echo Current directory: && cd && dir"
+                        
+                                // Clean and re-clone the repository
                                 bat """
-                                 echo "Checking values.yaml exists..."
-                                    if not exist values.yaml (
-                                        echo "values.yaml not found"
-                                        exit 1
-                                    )
+                                    cd ../..
+                                    if exist todo-app rmdir /s /q todo-app
+                                    git clone https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git
+                                    cd todo-app/todo-app-chart
                                 """
                         
                                 // Read and update values.yaml
                                 def valuesContent = readFile 'values.yaml'
-                                    valuesContent = valuesContent.replaceAll(
+                                valuesContent = valuesContent.replaceAll(
                                     "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
                                     "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
                                 )
@@ -241,14 +269,13 @@ pipeline {
                                 bat """
                                     git config user.name "Ilyasse"
                                     git config user.email "ilyasse.taoufik@ynov.com"
-                                    git checkout main || git checkout -b main
                                     git add values.yaml
-                                    git diff --cached --quiet || git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}"
-                                    git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git main
+                                    git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}"
+                                    git push origin main
                                 """
                             }
                         }
-                    }   catch (Exception e) {
+                    } catch (Exception e) {
                         echo "Failed to update Helm values: ${e.getMessage()}"
                         currentBuild.result = 'FAILURE'
                         error "Update Helm values stage failed"
@@ -256,19 +283,6 @@ pipeline {
                 }
             }
         }
-
-       stage('Deploy to Kubernetes') {
-           when {
-               expression { env.DRY_RUN != 'true' }
-           }
-           steps {
-               echo 'Deploying to Kubernetes...'
-               bat """
-                   helm upgrade --install todo-app ${K8S_REPO_PATH} --namespace todo-app --set backend.image=${BACKEND_IMAGE}:${BACKEND_TAG} --set frontend.image=${FRONTEND_IMAGE}:${FRONTEND_TAG} --wait --timeout 10m0s || echo "Error deploying applications"
-               """
-           }
-       }
-   }
 
    post {
        always {

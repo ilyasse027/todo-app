@@ -26,7 +26,6 @@ pipeline {
        TRIVY_CACHE_DIR = "${WORKSPACE}/.trivycache"
    }
    
-    }
    stages {
        stage('Cleanup Workspace') {
            steps {

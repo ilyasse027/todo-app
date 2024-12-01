@@ -236,7 +236,7 @@ pipeline {
                              rem Deploy initial ArgoCD application
                             helm upgrade --install argocd-config ${K8S_REPO_PATH} --namespace argocd --set argocd.enabled=true
                         """
-                        String argocdAdminPassword = sh(
+                        String argocdAdminPassword = bat(
                             script: "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode",
                             returnStdout: true
                         ).trim()                        bat """

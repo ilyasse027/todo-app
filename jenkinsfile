@@ -23,6 +23,7 @@ pipeline {
        // Autres configurations
        DRY_RUN = 'false'
        K8S_REPO_PATH = "${WORKSPACE}/todo-app/todo-app-chart"
+       TRIVY_CACHE_DIR = "${WORKSPACE}/.trivycache"
    }
     stage('Prepare Trivy') {
         steps {

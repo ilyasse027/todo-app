@@ -35,7 +35,7 @@ pipeline {
        }
 
        
-        }
+        
 
        stage('Checkout') {
            when {
@@ -58,15 +58,16 @@ pipeline {
                '''
            }
        }
-       
-       stage('Prepare Trivy') {
-        steps {
-            bat """
-                if not exist ${TRIVY_CACHE_DIR} mkdir ${TRIVY_CACHE_DIR}
-                echo "Updating Trivy DB..."
-                trivy image --cache-dir ${TRIVY_CACHE_DIR} --download-db-only
-            """
 
+       stage('Prepare Trivy') {
+            steps {
+                bat """
+                    if not exist ${TRIVY_CACHE_DIR} mkdir ${TRIVY_CACHE_DIR}
+                    echo "Updating Trivy DB..."
+                    trivy image --cache-dir ${TRIVY_CACHE_DIR} --download-db-only
+                """
+            }
+        }
 
        stage('Install Dependencies') {
            when {

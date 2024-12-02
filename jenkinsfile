@@ -221,6 +221,29 @@ pipeline {
                }
            }
        }
+       stage('Update Helm Values') {
+            steps {
+                script {
+                    dir("${K8S_REPO_PATH}") {
+                        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                            bat """
+                                git config user.email "jenkins@yourcompany.com"
+                                git config user.name "Jenkins Pipeline"
+                                
+                                powershell -Command "(Get-Content values.yaml) | ForEach-Object { \
+                                    \$_ -replace 'backend:\\s+tag:\\s+.*', 'backend:\\n  tag: ${BACKEND_TAG}' \
+                                    -replace 'frontend:\\s+tag:\\s+.*', 'frontend:\\n  tag: ${FRONTEND_TAG}' \
+                                } | Set-Content values.yaml"
+                                
+                                git add values.yaml
+                                git commit -m "Update image tags to: Backend ${BACKEND_TAG}, Frontend ${FRONTEND_TAG}"
+                                git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git HEAD:main
+                            """
+                        }
+                    }
+                }
+            }
+        }
 
        stage('Setup ArgoCD') {
             steps {

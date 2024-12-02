@@ -193,13 +193,13 @@ pipeline {
                     backend: {
                         echo 'Scanning Backend Image...'
                         bat """
-                            trivy image --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                            trivy image --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
                         """
                     },
                     frontend: {
                         echo 'Scanning Frontend Image...'
                         bat """
-                            trivy image --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                            trivy image --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
                         """
                     }
                 )

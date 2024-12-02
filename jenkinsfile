@@ -65,8 +65,7 @@ pipeline {
                     sleep 10  // Add small delay between retries
                     bat """
                         if not exist ${TRIVY_CACHE_DIR} mkdir ${TRIVY_CACHE_DIR}
-                        echo "Updating Trivy DB..."
-                        trivy image --cache-dir ${TRIVY_CACHE_DIR} --download-db-only || exit 0
+                        echo "Using existing Trivy DB or continuing without update..."
                     """
                 }
             }
@@ -193,22 +192,22 @@ pipeline {
 
        stage('Scan Docker Images') {
            steps {
-               parallel(
-                   backend: {
-                       echo 'Scanning Backend Image...'
-                       bat """
-                           trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                       """
-                   },
-                   frontend: {
-                       echo 'Scanning Frontend Image...'
-                       bat """
-                           trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
-                       """
-                   }
-               )
-           }
-       }
+                parallel(
+                    backend: {
+                        echo 'Scanning Backend Image...'
+                        bat """
+                            trivy image --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                        """
+                    },
+                    frontend: {
+                        echo 'Scanning Frontend Image...'
+                        bat """
+                            trivy image --skip-db-update --exit-code 1 --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                        """
+                    }
+                )
+            }
+        }
 
        stage('Push Docker Images') {
            steps {

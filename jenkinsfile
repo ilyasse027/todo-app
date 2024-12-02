@@ -191,7 +191,7 @@ pipeline {
        stage('Scan Docker Images') {
            steps {
                 script {
-                    bat "trivy image hello-world:latest"
+                    bat "trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 hello-world:latest"
 
                     parallel(
                         backend: {

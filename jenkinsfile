@@ -64,7 +64,7 @@ pipeline {
             steps {
                 bat """
                     if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
-                    trivy image --cache-dir "%WORKSPACE%\\.trivycache" --download-db-only
+                    trivy image --cache-dir "%WORKSPACE%\\.trivycache"
                 """
             }
         }

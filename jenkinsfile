@@ -220,12 +220,13 @@ pipeline {
            steps {
                script {
                    bat """
-                        if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --download-db-only
-                        timeout /t 5
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                        timeout /t 5
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --db-repository docker.io/aquasecurity/trivy-db:2 alpine:latest
+               
+                        echo "Scanning Backend..."
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend vulnerabilities found"
+                        
+                        echo "Scanning Frontend..."  
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend vulnerabilities found"
                     """
                }
            }

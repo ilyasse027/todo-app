@@ -191,7 +191,7 @@ pipeline {
        stage('Scan Docker Images') {
            steps {
                 script {
-                    bat "trivy image --download-db-only"
+                    bat "trivy image --no-progress"
 
                     parallel(
                         backend: {

@@ -25,7 +25,7 @@ pipeline {
        DRY_RUN = 'false'
        K8S_REPO_PATH = "${WORKSPACE}/todo-app/todo-app-chart"
        TRIVY_CACHE_DIR = "${WORKSPACE}/.trivycache"
-       TRIVY_SKIP_DB_UPDATE = 'true'
+       TRIVY_SKIP_DB_UPDATE = ''
    }
    
    stages {
@@ -191,17 +191,15 @@ pipeline {
        stage('Scan Docker Images') {
             steps {
                 script {
-                    // First, ensure the environment variable is cleared
-                    bat 'set TRIVY_SKIP_DB_UPDATE='
-                    
                     bat """
-                        echo "Initializing Trivy and scanning Backend..."
-                        trivy image --no-progress --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend scan completed with findings"
+                        echo "Downloading Trivy vulnerability database..."
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --download-db-only
                         
-                        ping -n 3 127.0.0.1 > nul
+                        echo "Scanning Backend Image..."
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --no-progress --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend vulnerabilities found"
                         
-                        echo "Scanning Frontend..."
-                        trivy image --no-progress --exit-code 0 --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend scan completed with findings"
+                        echo "Scanning Frontend Image..."
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --no-progress --exit-code 0 --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend vulnerabilities found"
                     """
                 }
             }

@@ -237,12 +237,15 @@ pipeline {
                             helm upgrade --install argocd-config ${K8S_REPO_PATH} --namespace argocd --set argocd.enabled=true
                         """
                         String argocdAdminPassword = powershell(
-                            script: "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(\$_))",
+                            script: """
+                                $password = kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}'
+                                [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($password))
+                            """,                            
                             returnStdout: true
                         ).trim() 
-                                               
+
                         bat """
-                             echo "ArgoCD initial admin password: ${argocdAdminPassword}"
+                             echo "ArgoCD initial admin password: %argocdAdminPassword%"
                         """
                     } catch (Exception e) {
                         echo "ArgoCD setup error: ${e.getMessage()}"

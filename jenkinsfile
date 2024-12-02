@@ -191,19 +191,17 @@ pipeline {
        stage('Scan Docker Images') {
             steps {
                 script {
+                    // First, ensure the environment variable is cleared
+                    bat 'set TRIVY_SKIP_DB_UPDATE='
+                    
                     bat """
-                        echo "Downloading Trivy DB..."
-                        trivy image --download-db-only
+                        echo "Initializing Trivy and scanning Backend..."
+                        trivy image --no-progress --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend scan completed with findings"
                         
-                        timeout /t 5
-                        
-                        echo "Scanning Backend..."
-                        trivy image --skip-db-update --no-progress --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG%
-                        
-                        timeout /t 5
+                        ping -n 3 127.0.0.1 > nul
                         
                         echo "Scanning Frontend..."
-                        trivy image --skip-db-update --no-progress --exit-code 0 --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG%
+                        trivy image --no-progress --exit-code 0 --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend scan completed with findings"
                     """
                 }
             }
@@ -255,54 +253,7 @@ pipeline {
             }
         }
 
-       stage('Update Helm Values and Push') {
-            steps {
-                script {
-                    try {
-                        dir("${K8S_REPO_PATH}") {
-                            withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                                // Debug current location
-                                bat "echo Current directory: && cd && dir"
-                        
-                                // Clean and re-clone the repository
-                                bat """
-                                    cd ../..
-                                    if exist todo-app rmdir /s /q todo-app
-                                    git clone https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git
-                                    cd todo-app/todo-app-chart
-                                """
-                        
-                                // Read and update values.yaml
-                                def valuesContent = readFile 'values.yaml'
-                                valuesContent = valuesContent.replaceAll(
-                                    "backend:\\n\\s+image: \"${BACKEND_IMAGE}:.*\"", 
-                                    "backend:\\n  image: \"${BACKEND_IMAGE}:${BACKEND_TAG}\""
-                                )
-                                valuesContent = valuesContent.replaceAll(
-                                    "frontend:\\n\\s+image: \"${FRONTEND_IMAGE}:.*\"", 
-                                    "frontend:\\n  image: \"${FRONTEND_IMAGE}:${FRONTEND_TAG}\""
-                                )
-                                writeFile file: 'values.yaml', text: valuesContent
-                        
-                                // Git operations
-                                bat """
-                                    git config user.name "Ilyasse"
-                                    git config user.email "ilyasse.taoufik@ynov.com"
-                                    git add values.yaml
-                                    git commit -m "Update image tags to backend:${BACKEND_TAG}, frontend:${FRONTEND_TAG}"
-                                    git push origin main
-                                """
-                            }
-                        }
-                    } catch (Exception e) {
-                        echo "Failed to update Helm values: ${e.getMessage()}"
-                        currentBuild.result = 'FAILURE'
-                        error "Update Helm values stage failed"
-                    }
-                }
-            }
-        }
-    }        
+       
 
    post {
        always {

@@ -63,7 +63,7 @@ pipeline {
        stage('Prepare Trivy') {
             steps {
                 bat """
-                    bat 'if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"'
+                    if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
 
                 """
             }

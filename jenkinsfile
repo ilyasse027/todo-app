@@ -61,13 +61,10 @@ pipeline {
 
        stage('Prepare Trivy') {
             steps {
-                retry(3) {  // Add retry mechanism
-                    sleep 10  // Add small delay between retries
-                    bat """
-                        if not exist ${TRIVY_CACHE_DIR} mkdir ${TRIVY_CACHE_DIR}
-                        echo "Using existing Trivy DB or continuing without update..."
-                    """
-                }
+                bat """
+                    if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
+                    echo "Using existing Trivy DB or continuing without update..."
+                """
             }
         }
 

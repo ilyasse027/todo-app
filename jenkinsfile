@@ -191,27 +191,15 @@ pipeline {
        stage('Scan Docker Images') {
            steps {
                 script {
-                    // First, ensure cache directory exists with proper Windows path
+                    // Initialize DB first, using alternative registry to avoid rate limits
                     bat """
-                        if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
-                    """
-                    
-                    // Download DB without skip flag
-                    bat """
-                        trivy image --download-db-only || exit 0
-                    """
-                    
-                    // Run scans in sequence to avoid rate limiting
-                    echo 'Scanning Backend Image...'
-                    bat """
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                    """
-                    
-                    sleep 5  // Add delay between scans
-                    
-                    echo 'Scanning Frontend Image...'
-                    bat """
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --db-repository docker.io/aquasecurity/trivy-db:2 alpine:latest
+                        
+                        echo "Scanning Backend..."
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend vulnerabilities found"
+                        
+                        echo "Scanning Frontend..."  
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend vulnerabilities found"
                     """
                 }
             }
@@ -220,14 +208,16 @@ pipeline {
            steps {
                script {
                    bat """
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --db-repository docker.io/aquasecurity/trivy-db:2 alpine:latest
-               
-                        echo "Scanning Backend..."
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend vulnerabilities found"
-                        
-                        echo "Scanning Frontend..."  
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend vulnerabilities found"
-                    """
+                       docker tag ${BACKEND_IMAGE}:${BACKEND_TAG} ${BACKEND_IMAGE}:latest
+                       docker push ${BACKEND_IMAGE}:${BACKEND_TAG}
+                       docker push ${BACKEND_IMAGE}:latest
+                   """
+
+                   bat """
+                       docker tag ${FRONTEND_IMAGE}:${FRONTEND_TAG} ${FRONTEND_IMAGE}:latest
+                       docker push ${FRONTEND_IMAGE}:${FRONTEND_TAG}
+                       docker push ${FRONTEND_IMAGE}:latest
+                   """
                }
            }
        }

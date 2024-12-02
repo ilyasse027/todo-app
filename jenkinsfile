@@ -251,26 +251,26 @@ pipeline {
                     }
                 }
             }
+            
         }
+    }    
 
-       
-
-   post {
-       always {
-           bat """
-               docker logout
-               docker rmi ${BACKEND_IMAGE}:${BACKEND_TAG} 2>NUL || echo "Removing backend tag"
+    post {
+        always {
+            bat """
+                docker logout
+                docker rmi ${BACKEND_IMAGE}:${BACKEND_TAG} 2>NUL || echo "Removing backend tag"
                 docker rmi ${BACKEND_IMAGE}:latest 2>NUL || echo "Removing backend latest"
                 docker rmi ${FRONTEND_IMAGE}:${FRONTEND_TAG} 2>NUL || echo "Removing frontend tag"
                 docker rmi ${FRONTEND_IMAGE}:latest 2>NUL || echo "Removing frontend latest"
-           """
-           cleanWs()
-       }
-       success {
-           echo "Pipeline completed successfully! Deployed version: Backend ${BACKEND_TAG}, Frontend ${FRONTEND_TAG}"
-       }
-       failure {
-           echo 'Pipeline failed! Check the logs for details.'
-       }
-   }
+            """
+            cleanWs()
+        }
+        success {
+            echo "Pipeline completed successfully! Deployed version: Backend ${BACKEND_TAG}, Frontend ${FRONTEND_TAG}"
+        }
+        failure {
+            echo 'Pipeline failed! Check the logs for details.'
+        }
+    }
 }

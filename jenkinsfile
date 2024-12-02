@@ -221,10 +221,11 @@ pipeline {
                script {
                    bat """
                         if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
-                        echo "Running security scans..."
-                        trivy image --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --download-db-only
                         timeout /t 5
-                        trivy image --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                        timeout /t 5
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
                     """
                }
            }

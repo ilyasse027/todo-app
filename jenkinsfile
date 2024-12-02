@@ -189,17 +189,21 @@ pipeline {
        }
 
        stage('Scan Docker Images') {
-           steps {
+            steps {
                 script {
                     bat """
-                        echo "Initializing Trivy DB..."
-                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image docker.io/library/alpine:latest
+                        echo "Downloading Trivy DB..."
+                        trivy image --download-db-only
+                        
+                        timeout /t 5
                         
                         echo "Scanning Backend..."
-                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --no-progress --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG%
+                        trivy image --skip-db-update --no-progress --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG%
+                        
+                        timeout /t 5
                         
                         echo "Scanning Frontend..."
-                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --no-progress --exit-code 0 --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG%
+                        trivy image --skip-db-update --no-progress --exit-code 0 --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG%
                     """
                 }
             }

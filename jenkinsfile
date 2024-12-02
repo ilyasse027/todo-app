@@ -224,25 +224,29 @@ pipeline {
        stage('Update Helm Values') {
             steps {
                 script {
-                    dir("${K8S_REPO_PATH}") {
-                        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                            bat """
-                                git config --global user.email "jenkins@yourcompany.com"
-                                git config --global user.name "Jenkins Pipeline"
-                                
-                                git config core.sparsecheckout false
-                                git checkout main
-                                
-                                powershell -Command "(Get-Content values.yaml) | ForEach-Object { \
-                                    \$_ -replace 'backend:\\s+tag:\\s+.*', 'backend:\\n  tag: ${BACKEND_TAG}' \
-                                    -replace 'frontend:\\s+tag:\\s+.*', 'frontend:\\n  tag: ${FRONTEND_TAG}' \
-                                } | Set-Content values.yaml"
-                                
-                                git add values.yaml
-                                git commit -m "Update image tags to: Backend ${BACKEND_TAG}, Frontend ${FRONTEND_TAG}"
-                                git push https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git HEAD:main
-                            """
-                        }
+                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                        // First, clone the full repository
+                        bat """
+                            git clone https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git helm-temp
+                            cd helm-temp
+                            git config user.email "jenkins@yourcompany.com"
+                            git config user.name "Jenkins Pipeline"
+                        """
+
+                        // Update the values.yaml file in the chart directory
+                        bat """
+                            cd helm-temp/todo-app-chart
+                            powershell -Command "(Get-Content values.yaml) | ForEach-Object { \
+                                \$_ -replace 'backend:\\s+image:\\s+.*', 'backend:\\n  image: ilyassepro/unique-backend:${BACKEND_TAG}' \
+                                -replace 'frontend:\\s+image:\\s+.*', 'frontend:\\n  image: ilyassepro/unique-frontend:${FRONTEND_TAG}' \
+                            } | Set-Content values.yaml"
+                            
+                            git add values.yaml
+                            git commit -m "Update image tags to: Backend ${BACKEND_TAG}, Frontend ${FRONTEND_TAG}"
+                            git push origin main
+                            cd ../..
+                            rmdir /s /q helm-temp
+                        """
                     }
                 }
             }

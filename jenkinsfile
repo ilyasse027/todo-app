@@ -19,6 +19,7 @@ pipeline {
        DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
        TRIVY_CREDENTIALS_ID = "PAT for trivy"
        GITHUB_TOKEN = credentials('github-token')
+       ARGOCD_CREDENTIALS_ID = 'argocd-admin-password'
        
        // Autres configurations
        DRY_RUN = 'false'
@@ -234,22 +235,16 @@ pipeline {
                             kubectl wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
 
                         """
-                        String argocdAdminPassword = powershell(
-                            script: """
-                                $password = kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}'
-                                [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($password))
-                            """,                            
-                            returnStdout: true
-                        ).trim() 
-
-                        bat """
-                             echo "ArgoCD initial admin password: %argocdAdminPassword%"
-                        """
-
-                        bat """
-                            helm upgrade --install argocd-config ${K8S_REPO_PATH} --namespace argocd --set argocd.enabled=true --set-string argocd.config.admin.passwordSecret=$argocdAdminPassword
-                        """
-
+                        withCredentials([string(credentialsId: 'argocd-admin-password', variable: 'ARGOCD_ADMIN_PASSWORD')]) {
+                            bat """
+                                helm upgrade --install argocd-config "%K8S_REPO_PATH%" ^
+                                --namespace argocd ^
+                                --set argocd.enabled=true ^
+                                --set-string argocd.config.admin.password="%ARGOCD_ADMIN_PASSWORD%" ^
+                                --wait ^
+                                --timeout 5m
+                            """
+                        }
                     } catch (Exception e) {
                         echo "ArgoCD setup error: ${e.getMessage()}"
                         currentBuild.result = 'FAILURE'

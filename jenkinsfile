@@ -189,23 +189,21 @@ pipeline {
 
        stage('Scan Docker Images') {
            steps {
-                parallel(
-                    backend: {
-                        echo 'Scanning Backend Image...'
-                        bat """
-                            trivy image --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                        """
-                    },
-                    frontend: {
-                        echo 'Scanning Frontend Image...'
-                        bat """
-                            trivy image --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
-                        """
-                    }
-                )
+                script {
+                    echo 'Scanning Backend Image...'
+                    bat """
+                        trivy image --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                    """
+                    
+                    sleep 5  // Add small delay between scans
+                    
+                    echo 'Scanning Frontend Image...'
+                    bat """
+                        trivy image --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                    """
+                }
             }
         }
-
        stage('Push Docker Images') {
            steps {
                script {

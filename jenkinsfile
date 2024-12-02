@@ -233,7 +233,7 @@ pipeline {
                             kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
                             kubectl wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
 
-    """
+                        """
                         String argocdAdminPassword = powershell(
                             script: """
                                 $password = kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}'

@@ -191,15 +191,15 @@ pipeline {
        stage('Scan Docker Images') {
            steps {
                 script {
-                    // Initialize DB first, using alternative registry to avoid rate limits
                     bat """
-                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --download-db-only
+                        echo "Initializing Trivy DB..."
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image docker.io/library/alpine:latest
                         
                         echo "Scanning Backend..."
-                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --exit-code 0 --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG%
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --no-progress --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG%
                         
                         echo "Scanning Frontend..."
-                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --exit-code 0 --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG%
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --no-progress --exit-code 0 --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG%
                     """
                 }
             }

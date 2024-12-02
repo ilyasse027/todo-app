@@ -25,6 +25,7 @@ pipeline {
        DRY_RUN = 'false'
        K8S_REPO_PATH = "${WORKSPACE}/todo-app/todo-app-chart"
        TRIVY_CACHE_DIR = "${WORKSPACE}/.trivycache"
+       TRIVY_SKIP_DB_UPDATE = 'true'
    }
    
    stages {
@@ -61,9 +62,11 @@ pipeline {
 
        stage('Prepare Trivy') {
             steps {
+
                 bat """
-                    if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
-                    echo "Using existing Trivy DB or continuing without update..."
+                    if not exist ${TRIVY_CACHE_DIR} mkdir ${TRIVY_CACHE_DIR}
+                    echo "Updating Trivy DB..."
+                    trivy image --cache-dir ${TRIVY_CACHE_DIR} --download-db-only
                 """
             }
         }
@@ -189,19 +192,20 @@ pipeline {
 
        stage('Scan Docker Images') {
            steps {
-                script {
-                    echo 'Scanning Backend Image...'
-                    bat """
-                        trivy image --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                    """
-                    
-                    sleep 5  // Add small delay between scans
-                    
-                    echo 'Scanning Frontend Image...'
-                    bat """
-                        trivy image --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
-                    """
-                }
+                parallel(
+                    backend: {
+                        echo 'Scanning Backend Image...'
+                        bat """
+                            trivy image --cache-dir ${TRIVY_CACHE_DIR} --skip-db-update --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                        """
+                    },
+                    frontend: {
+                        echo 'Scanning Frontend Image...'
+                        bat """
+                            trivy image --cache-dir ${TRIVY_CACHE_DIR} --skip-db-update --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                        """
+                    }
+                )
             }
         }
        stage('Push Docker Images') {

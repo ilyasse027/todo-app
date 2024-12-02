@@ -191,7 +191,7 @@ pipeline {
        stage('Scan Docker Images') {
            steps {
                 script {
-                    bat "trivy image --no-progress"
+                    bat "trivy image hello-world:latest"
 
                     parallel(
                         backend: {

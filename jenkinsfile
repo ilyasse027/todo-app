@@ -191,22 +191,28 @@ pipeline {
        stage('Scan Docker Images') {
            steps {
                 script {
-                    bat "trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 hello-world:latest"
-
-                    parallel(
-                        backend: {
-                            echo 'Scanning Backend Image...'
-                            bat """
-                                trivy image --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
-                            """
-                        },
-                        frontend: {
-                            echo 'Scanning Frontend Image...'
-                            bat """
-                                trivy image --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
-                            """
-                        }
-                    )
+                    // First, ensure cache directory exists with proper Windows path
+                    bat """
+                        if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
+                    """
+                    
+                    // Download DB without skip flag
+                    bat """
+                        trivy image --download-db-only || exit 0
+                    """
+                    
+                    // Run scans in sequence to avoid rate limiting
+                    echo 'Scanning Backend Image...'
+                    bat """
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                    """
+                    
+                    sleep 5  // Add delay between scans
+                    
+                    echo 'Scanning Frontend Image...'
+                    bat """
+                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                    """
                 }
             }
         }
@@ -214,16 +220,12 @@ pipeline {
            steps {
                script {
                    bat """
-                       docker tag ${BACKEND_IMAGE}:${BACKEND_TAG} ${BACKEND_IMAGE}:latest
-                       docker push ${BACKEND_IMAGE}:${BACKEND_TAG}
-                       docker push ${BACKEND_IMAGE}:latest
-                   """
-
-                   bat """
-                       docker tag ${FRONTEND_IMAGE}:${FRONTEND_TAG} ${FRONTEND_IMAGE}:latest
-                       docker push ${FRONTEND_IMAGE}:${FRONTEND_TAG}
-                       docker push ${FRONTEND_IMAGE}:latest
-                   """
+                        if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
+                        echo "Running security scans..."
+                        trivy image --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                        timeout /t 5
+                        trivy image --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                    """
                }
            }
        }

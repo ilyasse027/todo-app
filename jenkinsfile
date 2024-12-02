@@ -64,7 +64,7 @@ pipeline {
             steps {
                 bat """
                     if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
-                    trivy image --cache-dir "%WORKSPACE%\\.trivycache"
+
                 """
             }
         }
@@ -194,13 +194,13 @@ pipeline {
                     backend: {
                         echo 'Scanning Backend Image...'
                         bat """
-                            trivy image --cache-dir ${TRIVY_CACHE_DIR} --skip-db-update --severity CRITICAL,HIGH %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
+                            trivy image --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend image has vulnerabilities!"
                         """
                     },
                     frontend: {
                         echo 'Scanning Frontend Image...'
                         bat """
-                            trivy image --cache-dir ${TRIVY_CACHE_DIR} --skip-db-update --severity CRITICAL,HIGH %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
+                            trivy image --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend image has vulnerabilities!"
                         """
                     }
                 )

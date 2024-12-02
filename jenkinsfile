@@ -227,8 +227,11 @@ pipeline {
                     dir("${K8S_REPO_PATH}") {
                         withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                             bat """
-                                git config user.email "jenkins@yourcompany.com"
-                                git config user.name "Jenkins Pipeline"
+                                git config --global user.email "jenkins@yourcompany.com"
+                                git config --global user.name "Jenkins Pipeline"
+                                
+                                git config core.sparsecheckout false
+                                git checkout main
                                 
                                 powershell -Command "(Get-Content values.yaml) | ForEach-Object { \
                                     \$_ -replace 'backend:\\s+tag:\\s+.*', 'backend:\\n  tag: ${BACKEND_TAG}' \

@@ -63,7 +63,7 @@ pipeline {
        stage('Prepare Trivy') {
             steps {
                 bat """
-                    if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"
+                    bat 'if not exist "%WORKSPACE%\\.trivycache" mkdir "%WORKSPACE%\\.trivycache"'
 
                 """
             }
@@ -193,13 +193,13 @@ pipeline {
                 script {
                     // Initialize DB first, using alternative registry to avoid rate limits
                     bat """
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --db-repository docker.io/aquasecurity/trivy-db:2 alpine:latest
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --download-db-only
                         
                         echo "Scanning Backend..."
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG% || echo "Backend vulnerabilities found"
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --exit-code 0 --no-progress --severity HIGH,CRITICAL %BACKEND_IMAGE%:%BACKEND_TAG%
                         
-                        echo "Scanning Frontend..."  
-                        trivy image --cache-dir "%WORKSPACE%\\.trivycache" --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG% || echo "Frontend vulnerabilities found"
+                        echo "Scanning Frontend..."
+                        trivy --cache-dir "%WORKSPACE%\\.trivycache" image --exit-code 0 --no-progress --severity HIGH,CRITICAL %FRONTEND_IMAGE%:%FRONTEND_TAG%
                     """
                 }
             }

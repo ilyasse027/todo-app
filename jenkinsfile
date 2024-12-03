@@ -230,7 +230,7 @@ pipeline {
                             if exist helm-temp rmdir /s /q helm-temp
                             mkdir helm-temp
                         """
-
+                        
                         dir('helm-temp') {
                             // Clone the repository with explicit credentials
                             bat """
@@ -239,23 +239,20 @@ pipeline {
                                 git config user.name "Jenkins Pipeline"
                             """
 
-                            // Use PowerShell to update values.yaml with better error handling
-                            bat """
+                            // Use PowerShell to update values.yaml - fixed command
+                            bat '''
                                 cd todo-app-chart
                                 echo "Current directory:"
                                 dir
                                 
-                                powershell -Command "
-                                    \$content = Get-Content values.yaml -Raw
-                                    \$newContent = \$content -replace '(?m)^(\\s*backend:\\s*\\n\\s*image:\\s*).*\$', '\${1}%BACKEND_IMAGE%:%BACKEND_TAG%' |
-                                                            -replace '(?m)^(\\s*frontend:\\s*\\n\\s*image:\\s*).*\$', '\${1}%FRONTEND_IMAGE%:%FRONTEND_TAG%'
-                                    \$newContent | Set-Content values.yaml -Force
-                                    
-                                    if (\$LASTEXITCODE -ne 0) {
-                                        Write-Error 'Failed to update values.yaml'
-                                        exit 1
-                                    }
-                                "
+                                powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+                                "$content = Get-Content -Path values.yaml -Raw; ^
+                                $backendImage = '$env:BACKEND_IMAGE:$env:BACKEND_TAG'; ^
+                                $frontendImage = '$env:FRONTEND_IMAGE:$env:FRONTEND_TAG'; ^
+                                $content = $content -replace '(backend:[\r\n\s]+image:[\s]*)[^\r\n]+', ('$1' + $backendImage); ^
+                                $content = $content -replace '(frontend:[\r\n\s]+image:[\s]*)[^\r\n]+', ('$1' + $frontendImage); ^
+                                $content | Set-Content -Path values.yaml -NoNewline; ^
+                                Get-Content values.yaml"
                                 
                                 echo "Updated values.yaml content:"
                                 type values.yaml
@@ -266,7 +263,7 @@ pipeline {
                                 
                                 git commit -m "Update image tags - Backend: %BACKEND_TAG%, Frontend: %FRONTEND_TAG% [skip ci]"
                                 git push origin main
-                            """
+                            '''
                         }
 
                         // Cleanup

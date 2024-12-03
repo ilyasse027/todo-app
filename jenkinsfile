@@ -225,35 +225,34 @@ pipeline {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                        // Create a temporary directory for git operations
                         bat """
                             if exist helm-temp rmdir /s /q helm-temp
                             mkdir helm-temp
                         """
                         
                         dir('helm-temp') {
-                            // Clone the repository with explicit credentials
                             bat """
                                 git clone https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git .
                                 git config user.email "jenkins@yourcompany.com"
                                 git config user.name "Jenkins Pipeline"
                             """
 
-                            // Use PowerShell to update values.yaml - fixed command
-                            bat '''
+                            bat """
                                 cd todo-app-chart
                                 echo "Current directory:"
                                 dir
                                 
-                                powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-                                "$content = Get-Content -Path values.yaml -Raw; ^
-                                $backendImage = '$env:BACKEND_IMAGE:$env:BACKEND_TAG'; ^
-                                $frontendImage = '$env:FRONTEND_IMAGE:$env:FRONTEND_TAG'; ^
-                                $content = $content -replace '(backend:[\r\n\s]+image:[\s]*)[^\r\n]+', ('$1' + $backendImage); ^
-                                $content = $content -replace '(frontend:[\r\n\s]+image:[\s]*)[^\r\n]+', ('$1' + $frontendImage); ^
-                                $content | Set-Content -Path values.yaml -NoNewline; ^
-                                Get-Content values.yaml"
-                                
+                                powershell -Command ^
+                                "Get-Content values.yaml | ForEach-Object { ^
+                                    if (`$_ -match 'backend:') { ^
+                                        `$_ -replace 'image:.*', 'image: %BACKEND_IMAGE%:%BACKEND_TAG%' ^
+                                    } elseif (`$_ -match 'frontend:') { ^
+                                        `$_ -replace 'image:.*', 'image: %FRONTEND_IMAGE%:%FRONTEND_TAG%' ^
+                                    } else { ^
+                                        `$_ ^
+                                    } ^
+                                } | Set-Content values.yaml"
+
                                 echo "Updated values.yaml content:"
                                 type values.yaml
                                 
@@ -263,10 +262,9 @@ pipeline {
                                 
                                 git commit -m "Update image tags - Backend: %BACKEND_TAG%, Frontend: %FRONTEND_TAG% [skip ci]"
                                 git push origin main
-                            '''
+                            """
                         }
 
-                        // Cleanup
                         bat "rmdir /s /q helm-temp"
                     }
                 }

@@ -225,28 +225,52 @@ pipeline {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                        // First, clone the full repository
+                        // Create a temporary directory for git operations
                         bat """
-                            git clone https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git helm-temp
-                            cd helm-temp
-                            git config user.email "jenkins@yourcompany.com"
-                            git config user.name "Jenkins Pipeline"
+                            if exist helm-temp rmdir /s /q helm-temp
+                            mkdir helm-temp
                         """
 
-                        // Update the values.yaml file in the chart directory
-                        bat """
-                            cd helm-temp/todo-app-chart
-                            powershell -Command "(Get-Content values.yaml) | ForEach-Object { \
-                                \$_ -replace 'backend:\\s+image:\\s+.*', 'backend:\\n  image: ilyassepro/unique-backend:${BACKEND_TAG}' \
-                                -replace 'frontend:\\s+image:\\s+.*', 'frontend:\\n  image: ilyassepro/unique-frontend:${FRONTEND_TAG}' \
-                            } | Set-Content values.yaml"
-                            
-                            git add values.yaml
-                            git commit -m "Update image tags to: Backend ${BACKEND_TAG}, Frontend ${FRONTEND_TAG}"
-                            git push origin main
-                            cd ../..
-                            rmdir /s /q helm-temp
-                        """
+                        dir('helm-temp') {
+                            // Clone the repository with explicit credentials
+                            bat """
+                                git clone https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git .
+                                git config user.email "jenkins@yourcompany.com"
+                                git config user.name "Jenkins Pipeline"
+                            """
+
+                            // Use PowerShell to update values.yaml with better error handling
+                            bat """
+                                cd todo-app-chart
+                                echo "Current directory:"
+                                dir
+                                
+                                powershell -Command "
+                                    \$content = Get-Content values.yaml -Raw
+                                    \$newContent = \$content -replace '(?m)^(\\s*backend:\\s*\\n\\s*image:\\s*).*\$', '\${1}%BACKEND_IMAGE%:%BACKEND_TAG%' |
+                                                            -replace '(?m)^(\\s*frontend:\\s*\\n\\s*image:\\s*).*\$', '\${1}%FRONTEND_IMAGE%:%FRONTEND_TAG%'
+                                    \$newContent | Set-Content values.yaml -Force
+                                    
+                                    if (\$LASTEXITCODE -ne 0) {
+                                        Write-Error 'Failed to update values.yaml'
+                                        exit 1
+                                    }
+                                "
+                                
+                                echo "Updated values.yaml content:"
+                                type values.yaml
+                                
+                                git add values.yaml
+                                git status
+                                git diff --cached
+                                
+                                git commit -m "Update image tags - Backend: %BACKEND_TAG%, Frontend: %FRONTEND_TAG% [skip ci]"
+                                git push origin main
+                            """
+                        }
+
+                        // Cleanup
+                        bat "rmdir /s /q helm-temp"
                     }
                 }
             }

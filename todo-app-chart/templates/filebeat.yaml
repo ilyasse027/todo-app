@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: todo-app
+data:
+  filebeat.yml: |
+    # Input configuration - defines where Filebeat should look for logs
+    filebeat.inputs:
+    - type: container
+      paths:
+        - /var/log/containers/*.log
+      # Set limits to prevent memory overflow
+      harvester_limit: 1000        # Maximum number of files that can be read simultaneously
+      max_bytes: 10485760         # Maximum size of a single log file to read (10MB)
+      # Add metadata processors to enrich our logs
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+        # Add useful metadata to help with filtering
+        - add_fields:
+            target: ''
+            fields:
+              environment: kubernetes
+              application: todo-app
+        # Drop unnecessary fields to save storage
+        - drop_fields:
+            fields: ["agent.ephemeral_id", "ecs.version"]
+            ignore_missing: true
+    
+    # Output configuration - defines where to send the logs
+    output.logstash:
+      hosts: ["logstash.todo-app.svc.cluster.local:5044"]
+      timeout: 15
+      # Backoff settings for connection retries
+      backoff.init: 1s
+      backoff.max: 60s
+      # Performance optimization settings
+      bulk_max_size: 2048         # Number of events to bulk in a single request
+      worker: 1                   # Number of workers sending events to Logstash
+      loadbalance: true          # Distribute load across Logstash instances
+      
+    # Logging configuration for Filebeat itself
+    logging.level: info          # Changed from debug to reduce overhead
+    logging.to_files: true
+    logging.files:
+      path: /var/log/filebeat
+      name: filebeat
+      keepfiles: 3              # Reduced from 7 to save disk space
+      permissions: 0644
+      rotateeverybytes: 10485760 # Rotate logs after 10MB
+
+    # Resource optimization
+    max_procs: 1                # Limit CPU usage
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: filebeat
+  namespace: todo-app
+spec:
+  selector:
+    matchLabels:
+      app: filebeat
+  template:
+    metadata:
+      labels:
+        app: filebeat
+    spec:
+      serviceAccountName: filebeat
+      containers:
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:8.5.1
+        args: ["-c", "/etc/filebeat.yml", "-e"]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          subPath: filebeat.yml
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: filebeat-config
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers

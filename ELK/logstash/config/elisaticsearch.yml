@@ -1,0 +1,21 @@
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+
+# Memory and performance settings
+bootstrap.memory_lock: true
+cluster.name: todo-app-monitoring
+node.name: node-1
+
+# Resource limits
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: "85%"
+cluster.routing.allocation.disk.watermark.high: "90%"
+
+# Security settings (basic for development)
+xpack.security.enabled: false
+discovery.type: single-node
+xpack.encryptedSavedObjects.encryptionKey: "something_at_least_32_characters"
+
+# Index lifecycle management
+xpack.ilm.enabled: true

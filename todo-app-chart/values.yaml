@@ -25,24 +25,3 @@ mongoExpress:
 ingress:
   enabled: true
   host: myapp.local
-
-# values.yaml
-argocd:
-  enabled: true
-  namespace: argocd
-  application:
-    name: todo-app
-    project: default
-    source:
-      repoURL: https://github.com/ilyasse027/todo-app.git
-      targetRevision: main
-      path: todo-app-chart
-    destination:
-      server: https://kubernetes.default.svc
-      namespace: todo-app
-    syncPolicy:
-      automated:
-        prune: false
-        selfHeal: true
-      syncOptions:
-        - CreateNamespace=true

@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metricbeat-config
+  namespace: todo-app
+data:
+  metricbeat.yml: |
+    metricbeat.modules:
+    - module: kubernetes
+      metricsets:
+        - pod
+        - container
+        - node
+        - system
+        - volume
+      period: 10s
+      hosts: ["https://${KUBERNETES_HOST}:10250"]
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      ssl.verification_mode: "none"
+    
+    - module: system
+      period: 10s
+      metricsets:
+        - cpu
+        - memory
+        - network
+        - filesystem
+    
+    output.elasticsearch:
+      hosts: ["elasticsearch.todo-app.svc.cluster.local:9200"]
+      
+    setup.kibana:
+      host: '${KIBANA_HOST:kibana:5601}'
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: metricbeat
+  namespace: todo-app
+spec:
+  selector:
+    matchLabels:
+      app: metricbeat
+  template:
+    metadata:
+      labels:
+        app: metricbeat
+    spec:
+      serviceAccountName: filebeat  # We can reuse the filebeat service account
+      containers:
+      - name: metricbeat
+        image: docker.elastic.co/beats/metricbeat:8.5.1
+        args: ["-c", "/etc/metricbeat.yml", "-e"]
+        env:
+        - name: KUBERNETES_HOST
+          value: "kubernetes.default.svc"
+        - name: ELASTICSEARCH_HOSTS
+          value: "elasticsearch:9200"
+        - name: KIBANA_HOST
+          value: "kibana:5601"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/metricbeat.yml
+          subPath: metricbeat.yml
+        - name: dockersock
+          mountPath: /var/run/docker.sock
+        - name: proc
+          mountPath: /hostfs/proc
+          readOnly: true
+        - name: cgroup
+          mountPath: /hostfs/sys/fs/cgroup
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: metricbeat-config
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: cgroup
+        hostPath:
+          path: /sys/fs/cgroup

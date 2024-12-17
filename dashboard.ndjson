@@ -1,0 +1,16 @@
+{
+  "version": "8.5.1",
+  "objects": [
+    {
+      "id": "todo-app-dashboard",
+      "type": "dashboard",
+      "attributes": {
+        "title": "Todo App Monitoring",
+        "description": "Monitoring dashboard for todo application",
+        "hits": 0,
+        "panelsJSON": "[{\"id\":\"pod-count-panel\",\"type\":\"visualization\",\"panelIndex\":\"1\",\"gridData\":{\"x\":0,\"y\":0,\"w\":24,\"h\":15,\"i\":\"1\"},\"version\":\"8.5.1\",\"attributes\":{\"title\":\"Pod Count Health\",\"visState\":{\"title\":\"Pod Count Health\",\"type\":\"metric\",\"params\":{\"addTooltip\":true,\"addLegend\":false,\"type\":\"metric\",\"metric\":{\"percentageMode\":false,\"useRanges\":true,\"colorSchema\":\"Green to Red\",\"metricColorMode\":\"Labels\",\"colorsRange\":[{\"from\":0,\"to\":5},{\"from\":5,\"to\":8},{\"from\":8,\"to\":100}],\"labels\":{\"show\":true}}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{\"customLabel\":\"Total Pods\"}}]}}},{\"id\":\"pod-status-table\",\"type\":\"visualization\",\"panelIndex\":\"2\",\"gridData\":{\"x\":0,\"y\":15,\"w\":48,\"h\":15,\"i\":\"2\"},\"version\":\"8.5.1\",\"attributes\":{\"title\":\"Pod Status\",\"visState\":{\"title\":\"Pod Status\",\"type\":\"table\",\"params\":{\"perPage\":10,\"showPartialRows\":false,\"showMetricsAtAllLevels\":false,\"sort\":{\"columnIndex\":null,\"direction\":null},\"showTotal\":false,\"totalFunc\":\"sum\"},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"kubernetes.pod.name.keyword\",\"orderBy\":\"1\",\"order\":\"desc\",\"size\":20,\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}}}]"
+      },
+      "references": []
+    }
+  ]
+}

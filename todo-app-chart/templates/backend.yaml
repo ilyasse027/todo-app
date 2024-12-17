@@ -1,11 +1,3 @@
-# templates/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.namespace }}
-  labels:
-    name: {{ .Values.namespace }}
-
 # templates/backend.yaml
 {{- $backend := .Values.backend }}
 {{- $namespace := .Values.namespace }}

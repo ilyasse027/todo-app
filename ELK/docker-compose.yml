@@ -1,0 +1,76 @@
+services:
+  # Elasticsearch: The search and analytics engine
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.1
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node          # Run as a single node cluster
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m     # Limit Java heap size to reduce memory usage
+      - xpack.security.enabled=false        # Disable security for development
+    ports:
+      - "9200:9200"    # REST API port
+      - "9300:9300"    # Node communication port
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data    # Persist data between restarts
+    networks:
+      - elastic
+    healthcheck:
+      # Check if cluster health is not red before marking container as healthy
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # Kibana: The visualization and management interface
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.5.1
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200    # Connect to Elasticsearch
+    ports:
+      - "5601:5601"    # Web interface port
+    depends_on:
+      elasticsearch:
+        condition: service_healthy    # Wait for Elasticsearch to be ready
+    networks:
+      - elastic
+    volumes:
+      - kibana-data:/usr/share/kibana/data    # Persist Kibana data
+
+  # Logstash: The data processing pipeline
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.5.1
+    container_name: logstash
+    environment:
+      - xpack.monitoring.enabled=false         # Disable monitoring to reduce overhead
+      - LS_JAVA_OPTS=-Xmx512m -Xms512m        # Limit Java heap size
+    ports:
+      - "5044:5044"    # Beats input port
+    volumes:
+      # Mount configuration files from host machine
+      - type: bind
+        source: ./logstash/config/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+      - type: bind
+        source: ./logstash/config/pipelines.yml
+        target: /usr/share/logstash/config/pipelines.yml
+      - type: bind
+        source: ./logstash/pipeline/logstash.conf
+        target: /usr/share/logstash/pipeline/logstash.conf
+    networks:
+      - elastic
+    depends_on:
+      elasticsearch:
+        condition: service_healthy    # Wait for Elasticsearch to be ready
+
+# Network configuration
+networks:
+  elastic:
+    external: true    # Use pre-existing network for communication between containers
+
+# Persistent storage configuration
+volumes:
+  elasticsearch-data:
+    driver: local    # Store Elasticsearch data locally
+  kibana-data:
+    driver: local    # Store Kibana data locally

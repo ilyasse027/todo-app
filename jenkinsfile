@@ -9,8 +9,8 @@ pipeline {
        DOCKER_HOST = 'npipe:////./pipe/docker_engine'
        
        // Versions
-       BACKEND_VERSION_BASE = '3.3'
-       FRONTEND_VERSION_BASE = '2.2'
+       BACKEND_VERSION_BASE = '4'
+       FRONTEND_VERSION_BASE = '4'
        BUILD_NUMBER = "${env.BUILD_NUMBER}"
        BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"
        FRONTEND_TAG = "${FRONTEND_VERSION_BASE}.${BUILD_NUMBER}"

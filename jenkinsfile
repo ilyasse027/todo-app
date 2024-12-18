@@ -275,10 +275,9 @@ pipeline {
                 script {
                     try {
                         bat """
-                            kubectl get namespace argocd || kubectl create namespace argocd
-                            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-                            kubectl wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
-
+                            kubectl --insecure-skip-tls-verify get namespace argocd || kubectl --insecure-skip-tls-verify create namespace argocd
+                            kubectl --insecure-skip-tls-verify apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --validate=false
+                            kubectl --insecure-skip-tls-verify wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
                         """
                         withCredentials([string(credentialsId: 'argocd-admin-password', variable: 'ARGOCD_ADMIN_PASSWORD')]) {
                             bat """

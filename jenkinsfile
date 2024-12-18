@@ -5,9 +5,7 @@ pipeline {
        // Images et repos
        BACKEND_IMAGE = 'ilyassepro/unique-backend'
        FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-       GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"
-       DOCKER_HOST = 'npipe:////./pipe/docker_engine'
-       
+       GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"       
        // Versions
        BACKEND_VERSION_BASE = '4.4'
        FRONTEND_VERSION_BASE = '4.1'

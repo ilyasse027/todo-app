@@ -1,35 +1,30 @@
-# Stage 1: Build and dependency installation
 FROM node:18-alpine AS builder
 WORKDIR /app
+
+# Use a compatible npm version
+RUN npm install -g npm@10.2.4
 
 # Copy package files first
 COPY package*.json ./
 
-# Windows-compatible commands for updating cross-spawn
-RUN npm install -g npm@latest && \
-    npm install -g cross-spawn@7.0.5 && \
-    npm install cross-spawn@7.0.5 --save-exact && \
-    npm ci --only=production
+# Install dependencies
+RUN npm ci --only=production
 
 # Copy application code
 COPY . .
 
-# Stage 2: Production image
+# Production image
 FROM node:18-alpine
 WORKDIR /app
 
-# Windows-compatible user creation
+# Create non-root user
 RUN addgroup -S appgroup && \
     adduser -S appuser -G appgroup
-
-# Update npm and cross-spawn in production image
-RUN npm install -g npm@latest && \
-    npm install -g cross-spawn@7.0.5
 
 # Copy from builder stage
 COPY --from=builder /app /app
 
-# Set permissions (Windows-compatible)
+# Set permissions
 RUN chown -R appuser:appgroup /app
 
 USER appuser

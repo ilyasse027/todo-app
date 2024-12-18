@@ -176,11 +176,7 @@ pipeline {
                     backend: {
                         echo "Building backend Docker image with tag ${BACKEND_TAG}..."
                         script {
-                            // Add build arguments to control npm version
-                            docker.build(
-                                "${BACKEND_IMAGE}:${BACKEND_TAG}",
-                                "--build-arg NODE_VERSION=20-alpine --build-arg NPM_VERSION=10.2.4 backend/."
-                            )
+                            docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
                         }
                     },
                     frontend: {

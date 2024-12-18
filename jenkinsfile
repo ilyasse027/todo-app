@@ -7,7 +7,7 @@ pipeline {
        FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
        GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"  
        // Versions
-       BACKEND_VERSION_BASE = '4.9'
+       BACKEND_VERSION_BASE = '5'
        FRONTEND_VERSION_BASE = '4.1'
        BUILD_NUMBER = "${env.BUILD_NUMBER}"
        BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"

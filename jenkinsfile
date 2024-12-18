@@ -5,9 +5,9 @@ pipeline {
        // Images et repos
        BACKEND_IMAGE = 'ilyassepro/unique-backend'
        FRONTEND_IMAGE = 'ilyassepro/unique-frontend'
-       GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"       
+       GITHUB_REPO = "https://github.com/ilyasse027/todo-app.git"s       
        // Versions
-       BACKEND_VERSION_BASE = '4.4'
+       BACKEND_VERSION_BASE = '4.6'
        FRONTEND_VERSION_BASE = '4.1'
        BUILD_NUMBER = "${env.BUILD_NUMBER}"
        BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"

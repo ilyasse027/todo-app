@@ -224,32 +224,32 @@ pipeline {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                        bat """
+                        bat '''
                             if exist helm-temp rmdir /s /q helm-temp
                             mkdir helm-temp
-                        """
+                        '''
                         
                         dir('helm-temp') {
-                            bat """
+                            bat '''
                                 git clone https://%GITHUB_TOKEN%@github.com/ilyasse027/todo-app.git .
                                 git config user.email "jenkins@yourcompany.com"
                                 git config user.name "Jenkins Pipeline"
-                            """
-
-                            bat """
+                                
                                 cd todo-app-chart
                                 echo "Current directory:"
                                 dir
-                                
-                                powershell -Command ^
-                                "Get-Content values.yaml | ForEach-Object { ^
-                                    if (`$_ -match 'backend:') { ^
-                                        `$_ -replace 'image:.*', 'image: %BACKEND_IMAGE%:%BACKEND_TAG%' ^
-                                    } elseif (`$_ -match 'frontend:') { ^
-                                        `$_ -replace 'image:.*', 'image: %FRONTEND_IMAGE%:%FRONTEND_TAG%' ^
-                                    } else { ^
-                                        `$_ ^
-                                    } ^
+                            '''
+
+                            // Using single quotes for PowerShell to avoid variable interpolation issues
+                            bat '''
+                                powershell -Command "Get-Content values.yaml | ForEach-Object { \
+                                    if ($_ -match 'backend:') { \
+                                        $_ -replace 'image:.*', 'image: %BACKEND_IMAGE%:%BACKEND_TAG%' \
+                                    } elseif ($_ -match 'frontend:') { \
+                                        $_ -replace 'image:.*', 'image: %FRONTEND_IMAGE%:%FRONTEND_TAG%' \
+                                    } else { \
+                                        $_ \
+                                    } \
                                 } | Set-Content values.yaml"
 
                                 echo "Updated values.yaml content:"
@@ -261,10 +261,10 @@ pipeline {
                                 
                                 git commit -m "Update image tags - Backend: %BACKEND_TAG%, Frontend: %FRONTEND_TAG% [skip ci]"
                                 git push origin main
-                            """
+                            '''
                         }
 
-                        bat "rmdir /s /q helm-temp"
+                        bat 'rmdir /s /q helm-temp'
                     }
                 }
             }

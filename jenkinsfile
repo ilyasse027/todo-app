@@ -9,7 +9,7 @@ pipeline {
        DOCKER_HOST = 'npipe:////./pipe/docker_engine'
        
        // Versions
-       BACKEND_VERSION_BASE = '4.3'
+       BACKEND_VERSION_BASE = '4.4'
        FRONTEND_VERSION_BASE = '4.1'
        BUILD_NUMBER = "${env.BUILD_NUMBER}"
        BACKEND_TAG = "${BACKEND_VERSION_BASE}.${BUILD_NUMBER}"
@@ -168,26 +168,30 @@ pipeline {
        }
 
        stage('Build Docker Images') {
-           when {
-               expression { env.DRY_RUN != 'true' }
-           }
-           steps {
-               parallel(
-                   backend: {
-                       echo "Building backend Docker image with tag ${BACKEND_TAG}..."
-                       script {
-                           docker.build("${BACKEND_IMAGE}:${BACKEND_TAG}", "backend/.")
-                       }
-                   },
-                   frontend: {
-                       echo "Building frontend Docker image with tag ${FRONTEND_TAG}..."
-                       script {
-                           docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
-                       }
-                   }
-               )
-           }
-       }
+            when {
+                expression { env.DRY_RUN != 'true' }
+            }
+            steps {
+                parallel(
+                    backend: {
+                        echo "Building backend Docker image with tag ${BACKEND_TAG}..."
+                        script {
+                            // Add build arguments to control npm version
+                            docker.build(
+                                "${BACKEND_IMAGE}:${BACKEND_TAG}",
+                                "--build-arg NODE_VERSION=20-alpine --build-arg NPM_VERSION=10.2.4 backend/."
+                            )
+                        }
+                    },
+                    frontend: {
+                        echo "Building frontend Docker image with tag ${FRONTEND_TAG}..."
+                        script {
+                            docker.build("${FRONTEND_IMAGE}:${FRONTEND_TAG}", "frontend/.")
+                        }
+                    }
+                )
+            }
+        }
 
        stage('Scan Docker Images') {
             steps {

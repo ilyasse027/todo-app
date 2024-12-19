@@ -274,19 +274,18 @@ pipeline {
             steps {
                 script {
                     try {
-                        bat """
-                            kubectl --insecure-skip-tls-verify get namespace argocd || kubectl --insecure-skip-tls-verify create namespace argocd
-                            kubectl --insecure-skip-tls-verify apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --validate=false
-                            kubectl --insecure-skip-tls-verify wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
-                        """
-                        withCredentials([string(credentialsId: 'argocd-admin-password', variable: 'ARGOCD_ADMIN_PASSWORD')]) {
+                        withCredentials([file(credentialsId: 'Kube config', variable: 'KUBECONFIG')]) {
                             bat """
-                                helm upgrade --install argocd-config "%K8S_REPO_PATH%" ^
-                                --namespace argocd ^
-                                --set argocd.enabled=true ^
-                                --set-string argocd.config.admin.password="%ARGOCD_ADMIN_PASSWORD%" ^
-                                --wait ^
-                                --timeout 5m
+                                set KUBECONFIG=%KUBECONFIG%
+                                
+                                echo "Creating ArgoCD namespace..."
+                                kubectl get namespace argocd || kubectl create namespace argocd
+                                
+                                echo "Installing ArgoCD..."
+                                kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --validate=false
+                                
+                                echo "Waiting for ArgoCD server..."
+                                kubectl wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
                             """
                         }
                     } catch (Exception e) {
@@ -296,7 +295,6 @@ pipeline {
                     }
                 }
             }
-            
         }
     }    
 

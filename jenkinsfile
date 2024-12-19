@@ -279,13 +279,13 @@ pipeline {
                                 set KUBECONFIG=%KUBECONFIG%
                                 
                                 echo "Creating ArgoCD namespace..."
-                                kubectl get namespace argocd || kubectl create namespace argocd
+                                kubectl --insecure-skip-tls-verify get namespace argocd || kubectl --insecure-skip-tls-verify create namespace argocd
                                 
                                 echo "Installing ArgoCD..."
-                                kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --validate=false
+                                kubectl --insecure-skip-tls-verify apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --validate=false
                                 
                                 echo "Waiting for ArgoCD server..."
-                                kubectl wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
+                                kubectl --insecure-skip-tls-verify wait --for=condition=available deployment -l "app.kubernetes.io/name=argocd-server" -n argocd --timeout=300s
                             """
                         }
                     } catch (Exception e) {
@@ -295,8 +295,7 @@ pipeline {
                     }
                 }
             }
-        }
-    }    
+        }    
 
     post {
         always {

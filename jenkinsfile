@@ -14,7 +14,7 @@ pipeline {
        FRONTEND_TAG = "${FRONTEND_VERSION_BASE}.${BUILD_NUMBER}"
        
        // Credentials
-       KUBECONFIG = credentials('Kube config')
+       KUBECONFIG = credentials('Kube-config')
        DOCKER_CREDENTIALS_ID = "Credentials for dockerhub"
        TRIVY_CREDENTIALS_ID = "PAT for trivy"
        GITHUB_TOKEN = credentials('github-token')
@@ -274,7 +274,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        withCredentials([file(credentialsId: 'Kube config', variable: 'KUBECONFIG')]) {
+                        withCredentials([file(credentialsId: 'Kube-config', variable: 'KUBECONFIG')]) {
                             bat """
                                 set KUBECONFIG=%KUBECONFIG%
                                 
